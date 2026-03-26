@@ -456,6 +456,14 @@
         <button class="eye-btn" onclick="toggleOddsEye()" id="odds-eye-btn">👁</button>
       </div>
       <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-align:center">Sin key: el modelo estima cuotas. Con key: cuotas reales de Bet365, Betcris y más.</div>
+      <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:10px">
+        <div style="font-size:10px;color:var(--accent);font-family:var(--mono);letter-spacing:0.1em;margin-bottom:6px;font-weight:700">▸ API-FOOTBALL KEY (opcional)</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">Liga B Colombia · Eliminatorias Mundial · Todos los partidos en vivo · 100 req/día gratis en <a href="https://rapidapi.com/api-sports/api/api-football" target="_blank" style="color:var(--accent)">RapidAPI</a></div>
+        <div class="key-wrap">
+          <input class="inp" id="apifootball-key-input" type="password" placeholder="RapidAPI key (opcional)" style="font-family:var(--mono);font-size:12px" />
+          <button class="eye-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'">👁</button>
+        </div>
+      </div>
     </div>
 
     <div class="field-group">
@@ -615,7 +623,9 @@
 let currentUser = null;
 let groqKey     = "";
 let messages    = [];
-let sportsCtx   = "";
+let sportsCtx       = "";
+let apiFootballKey  = "";
+let apiFootballCtx  = "";
 let nbaLineups  = "";
 let liveGames   = [];
 let isLoading   = false;
@@ -728,8 +738,9 @@ function doAuth() {
 
 function loginUser(u, acc) {
   currentUser = u;
-  groqKey  = acc.groqKey  || "";
-  oddsKey  = acc.oddsKey  || "";
+  groqKey        = acc.groqKey        || "";
+  oddsKey        = acc.oddsKey        || "";
+  apiFootballKey = acc.apiFootballKey || "";
   messages = acc.messages || [];
   document.getElementById("hdr-user").textContent = "Groq · @" + u;
   if (!groqKey) {
@@ -741,7 +752,7 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; oddsKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = "";
+  currentUser = null; groqKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = "";
   if (clockTimer) clearInterval(clockTimer);
   stopAutoRefresh();
   stopLiveTracking();
@@ -758,6 +769,7 @@ function goSetup() {
   document.getElementById("setup-sub").textContent = "@" + currentUser;
   document.getElementById("key-input").value = groqKey || "";
   document.getElementById("odds-key-input").value = oddsKey || "";
+  if (document.getElementById("apifootball-key-input")) document.getElementById("apifootball-key-input").value = apiFootballKey || "";
   document.getElementById("key-err").textContent = "";
   showScreen("setup");
 }
@@ -779,8 +791,10 @@ function saveKey() {
   if (k.length < 40) { err.textContent = "La key de Groq parece muy corta, revísala."; return; }
   groqKey = k;
   oddsKey = ok;
+  const afk = (document.getElementById("apifootball-key-input")?.value || "").trim();
+  apiFootballKey = afk;
   const acc = getAccount(currentUser);
-  if (acc) saveAccount(currentUser, { ...acc, groqKey: k, oddsKey: ok });
+  if (acc) saveAccount(currentUser, { ...acc, groqKey: k, oddsKey: ok, apiFootballKey: afk });
   openChat();
 }
 
@@ -833,6 +847,78 @@ const ESPN_ENDPOINTS = [
   { label: "Copa Sudamericana",  sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard" },
   { label: "MLS",                sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
 ];
+
+// ── API-Football (Liga B, Eliminatorias, Live global) ──────────
+const AF_LEAGUES = [
+  { id: 240, name: "Liga BetPlay B Colombia", flag: "🇨🇴" },
+  { id: 239, name: "Liga BetPlay A Colombia", flag: "🇨🇴" },
+  { id: 31,  name: "Eliminatorias CONMEBOL (Mundial 2026)", flag: "🌍" },
+  { id: 13,  name: "Copa Libertadores", flag: "🏆" },
+  { id: 11,  name: "Copa Sudamericana", flag: "🏆" },
+  { id: 241, name: "Copa Colombia", flag: "🇨🇴" },
+];
+
+async function loadAPIFootball() {
+  if (!apiFootballKey) { apiFootballCtx = ""; return; }
+  const colNow = getColombiaTime();
+  const today  = colNow.getFullYear() + "-" + String(colNow.getMonth()+1).padStart(2,"0") + "-" + String(colNow.getDate()).padStart(2,"0");
+  const parts  = [];
+
+  // Fetch today's fixtures for key leagues
+  await Promise.allSettled(AF_LEAGUES.map(async (lg) => {
+    try {
+      const r = await fetch(
+        `https://v3.football.api-sports.io/fixtures?league=${lg.id}&date=${today}&timezone=America%2FBogota`,
+        { headers: { "x-rapidapi-key": apiFootballKey, "x-rapidapi-host": "v3.football.api-sports.io" }, signal: AbortSignal.timeout(6000) }
+      );
+      if (!r.ok) return;
+      const d = await r.json();
+      const fx = d?.response || [];
+      if (!fx.length) return;
+      const lines = fx.map(f => {
+        const home = f.teams?.home?.name || "?";
+        const away = f.teams?.away?.name || "?";
+        const hs   = f.goals?.home ?? "-";
+        const as_  = f.goals?.away ?? "-";
+        const st   = f.fixture?.status?.short || "";
+        const min  = f.fixture?.status?.elapsed;
+        const isLive = ["1H","HT","2H","ET","BT","P"].includes(st);
+        const time   = f.fixture?.date ? (() => {
+          const colMs = new Date(f.fixture.date).getTime();
+          const d2    = new Date(colMs);
+          return String(d2.getHours()).padStart(2,"0") + ":" + String(d2.getMinutes()).padStart(2,"0") + " COL";
+        })() : "";
+        return `  • ${away} vs ${home}${isLive ? ` [${as_}-${hs}] 🔴${min?min+"'":""}` : ""} | ${st}${!isLive&&time?" | "+time:""}`;
+      });
+      parts.push(`${lg.flag} **${lg.name}** (${today}):\n${lines.join("\n")}`);
+    } catch {}
+  }));
+
+  // All live games globally
+  try {
+    const r = await fetch("https://v3.football.api-sports.io/fixtures?live=all",
+      { headers: { "x-rapidapi-key": apiFootballKey, "x-rapidapi-host": "v3.football.api-sports.io" }, signal: AbortSignal.timeout(6000) });
+    if (r.ok) {
+      const d    = await r.json();
+      const live = (d?.response || []).slice(0, 14);
+      if (live.length) {
+        const lines = live.map(f => {
+          const home = f.teams?.home?.name || "?";
+          const away = f.teams?.away?.name || "?";
+          const hs   = f.goals?.home ?? "-";
+          const as_  = f.goals?.away ?? "-";
+          const min  = f.fixture?.status?.elapsed || "";
+          const lg   = f.league?.name || "?";
+          const cty  = f.league?.country || "";
+          return `  • ${away} ${as_}-${hs} ${home} 🔴${min?min+"'":""} | ${lg}${cty?" ("+cty+")":""}`;
+        });
+        parts.unshift(`⚽ **PARTIDOS EN VIVO AHORA (global)**:\n${lines.join("\n")}`);
+      }
+    }
+  } catch {}
+
+  apiFootballCtx = parts.join("\n\n");
+}
 
 async function loadESPN() {
   const parts = [];
@@ -1076,6 +1162,7 @@ async function refreshData() {
   try {
     const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries()];
     if (oddsKey) loaders.push(loadOdds());
+    if (apiFootballKey) loaders.push(loadAPIFootball());
     await Promise.allSettled(loaders);
     dataLoaded = true;
 
@@ -1137,6 +1224,7 @@ function updateCtxChips(state) {
     const trackTxt  = liveTrackingMatch ? `⟳ ${liveTrackingMatch.away.split(' ')[0]} vs ${liveTrackingMatch.home.split(' ')[0]}` : "";
     const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
     const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
+    const afTxt     = apiFootballCtx ? "⚽ API-Football" : (apiFootballKey ? "⚽ Cargando..." : "");
     row.innerHTML = `
       <span class="ctx-chip ok">✓ ESPN</span>
       <span class="ctx-chip ok">✓ NBA</span>
@@ -1144,6 +1232,7 @@ function updateCtxChips(state) {
       <span class="ctx-chip ok">🇨🇴 COL</span>
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
       ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
+      ${afTxt   ? `<span class="ctx-chip ok">${afTxt}</span>`     : ""}
       ${trackTxt? `<span class="ctx-chip err">⟳ ${trackTxt}</span>`: ""}
     `;
   } else {
@@ -1155,6 +1244,9 @@ function updateCtxChips(state) {
 //  SYSTEM PROMPT (potenciado)
 // ══════════════════════════════════════════════════════════════
 function buildSystem() {
+  // API-Football extra leagues context
+  const afSection = apiFootballCtx ? `## ⚽ API-FOOTBALL (Liga B, Eliminatorias, Live global)\n${apiFootballCtx}\n` : "";
+
   const colNow = getColombiaTime();
   const colStr = formatColDateFull(colNow);
   const colHour = colNow.getHours();
@@ -1192,6 +1284,8 @@ ${espnSection}
 ${nbaSection}
 
 ${liveSection}
+
+${afSection}
 
 ${injurySection}
 
@@ -1560,12 +1654,38 @@ async function sendMessage() {
     if (!dataLoaded) {
       await refreshData();
     }
-    updateTypingLabel("Analizando con IA...");
+    updateTypingLabel("Razonando internamente...");
 
     const systemPrompt = buildSystem();
-    // Always use 70b — 8b has a context window too small for our sports data
-    // Trim to last 8 messages to keep token count under control
     const groqMsgs = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
+
+    // ── Paso 1: razonamiento interno silencioso ──
+    let reasoningCtx = "";
+    try {
+      const thinkResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          max_tokens: 500,
+          temperature: 0.25,
+          messages: [
+            { role: "system", content: "Eres un analista de apuestas que razona antes de responder. En máx 6 líneas: (1) qué datos son clave aquí, (2) qué sesgos evitar, (3) existe edge real o no. NO des la respuesta final — solo razonamiento interno conciso." },
+            ...groqMsgs.slice(-2)
+          ]
+        })
+      });
+      if (thinkResp.ok) {
+        const td = await thinkResp.json();
+        reasoningCtx = td.choices?.[0]?.message?.content || "";
+      }
+    } catch {}
+
+    updateTypingLabel("Elaborando análisis final...");
+
+    const finalSystem = systemPrompt + (reasoningCtx
+      ? "\n\n## 🧠 TU RAZONAMIENTO PREVIO (no repetir, solo usar como base):\n" + reasoningCtx
+      : "");
 
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -1575,8 +1695,8 @@ async function sendMessage() {
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
-        max_tokens: 2048,
+        messages: [{ role: "system", content: finalSystem }, ...groqMsgs],
+        max_tokens: 3000,
         temperature: 0.6,
       }),
     });
@@ -1620,9 +1740,34 @@ async function sendMessage() {
       const secs = err.waitSecs || 60;
       // Build a message bubble with live countdown
       const countdownId = "cd_" + Date.now();
-      content = `⏳ **Límite de Groq alcanzado.**\n\nEl modelo gratuito tiene un límite de tokens por minuto. Tiempo restante: <span id="${countdownId}" style="color:#f59e0b;font-weight:700;font-family:monospace">${formatCountdown(secs)}</span>\n\n💡 *Tip:* preguntas simples usan el modelo rápido (8b) que consume menos tokens.`;
-      // Start countdown after bubble is added
-      setTimeout(() => startCountdown(countdownId, secs), 50);
+      content = "⏳ **Límite de Groq alcanzado.**\n" +
+        "@@HTML@@<div style=\"margin:8px 0 4px;display:flex;align-items:center;gap:10px\">" +
+          "<span style=\"font-size:12px;color:#94a3b8;font-family:monospace\">Recuperando en:</span>" +
+          "<span id=\"" + countdownId + "\" style=\"font-size:20px;font-weight:700;color:#f59e0b;font-family:monospace\">" + formatCountdown(secs) + "</span>" +
+        "</div>\n" +
+        "@@HTML@@<div style=\"height:4px;background:rgba(245,158,11,0.15);border-radius:4px;margin-bottom:10px\">" +
+          "<div id=\"" + countdownId + "_bar\" style=\"height:100%;width:100%;background:linear-gradient(90deg,#f59e0b,#ff8c00);border-radius:4px;transition:width 1s linear\"></div>" +
+        "</div>\n" +
+        "💡 El input se reactiva automáticamente cuando llegue a 0.";
+      setTimeout(() => {
+        startCountdown(countdownId, secs);
+        // Also animate the bar
+        let rem = secs;
+        const bar = document.getElementById(countdownId + "_bar");
+        const inp = document.getElementById("msg-input");
+        const btn = document.getElementById("send-btn");
+        if (inp) inp.disabled = true;
+        if (btn) { btn.disabled = true; btn.classList.remove("ready"); }
+        const barIv = setInterval(() => {
+          rem--;
+          if (bar) bar.style.width = Math.max(0, (rem / secs * 100)) + "%";
+          if (rem <= 0) {
+            clearInterval(barIv);
+            if (inp) { inp.disabled = false; inp.focus(); }
+            if (btn) btn.disabled = false;
+          }
+        }, 1000);
+      }, 80);
     } else if (typeof err === "string" && err.toLowerCase().includes("fetch")) {
       content = "🌐 **Error de conexión.** Verifica tu internet e intenta de nuevo.";
     } else if (typeof err === "string" && err.toLowerCase().includes("decommissioned")) {
@@ -1687,6 +1832,8 @@ function hasSteam(text) {
 function renderMD(text) {
   return text.split("\n").map(line => {
     if (line.trim() === "---") return "<hr/>";
+    // @@HTML@@ prefix = safe internal HTML passthrough (for countdown, bars, etc.)
+    if (line.startsWith("@@HTML@@")) return line.slice(8);
     const escaped = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const bolded = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
     return "<p>" + bolded + "</p>";
