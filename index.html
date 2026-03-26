@@ -161,6 +161,55 @@
   .live-btn:hover { background: rgba(255,71,87,0.2); }
   .live-btn.spinning { animation: spin .7s linear infinite; }
   @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+  .tracker-btn { padding: 4px 9px; border-radius: 6px; background: rgba(61,158,255,0.1); border: 1px solid rgba(61,158,255,0.3); color: var(--blue); cursor: pointer; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; transition: all .15s; }
+  .tracker-btn:hover { background: rgba(61,158,255,0.2); }
+
+  /* ── TRACKER SCREEN ── */
+  #screen-tracker { flex-direction: column; align-items: center; background: var(--bg); }
+  .tracker-header { width:100%; max-width:760px; padding:10px 14px; background:rgba(8,11,16,0.97); border-bottom:1px solid rgba(61,158,255,0.12); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+  .tracker-title { font-size:16px; font-weight:800; letter-spacing:0.06em; color:var(--blue); }
+  .tracker-body { width:100%; max-width:760px; padding:16px 14px; overflow-y:auto; flex:1; }
+
+  /* Stats row */
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+  @media(max-width:480px){ .stats-row { grid-template-columns:repeat(2,1fr); } }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 10px; text-align:center; }
+  .stat-val { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
+  .stat-lbl { font-size:9px; color:var(--muted); font-family:var(--mono); margin-top:3px; letter-spacing:0.06em; }
+
+  /* Add tip form */
+  .add-tip-form { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:16px; }
+  .form-title { font-size:12px; color:var(--accent); font-family:var(--mono); font-weight:700; letter-spacing:0.08em; margin-bottom:12px; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .form-full { grid-column: 1/-1; }
+  .finp { width:100%; background:var(--surface2); border:1px solid var(--border2); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; font-family:'Barlow Condensed',sans-serif; outline:none; }
+  .finp:focus { border-color:rgba(0,229,184,0.3); }
+  .finp::placeholder { color:var(--dim); }
+  .btn-add { width:100%; margin-top:8px; padding:10px 0; border-radius:9px; border:none; cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--bg); font-weight:800; font-size:13px; letter-spacing:0.06em; transition:all .2s; }
+  .btn-add:hover { filter:brightness(1.1); }
+
+  /* Tips list */
+  .tip-row { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; display:flex; gap:10px; align-items:center; }
+  .tip-row-info { flex:1; min-width:0; }
+  .tip-row-match { font-size:14px; font-weight:700; letter-spacing:0.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tip-row-meta { font-size:10px; color:var(--muted); font-family:var(--mono); margin-top:2px; }
+  .tip-row-pick { font-size:11px; color:var(--accent); margin-top:3px; font-family:var(--mono); }
+  .result-btns { display:flex; gap:5px; flex-shrink:0; }
+  .rbtn { padding:4px 8px; border-radius:6px; border:none; cursor:pointer; font-size:10px; font-family:var(--mono); font-weight:700; transition:all .15s; }
+  .rbtn-w { background:rgba(46,204,113,0.12); border:1px solid rgba(46,204,113,0.3); color:var(--green); }
+  .rbtn-l { background:rgba(255,71,87,0.12); border:1px solid rgba(255,71,87,0.3); color:var(--red); }
+  .rbtn-v { background:rgba(255,193,7,0.12); border:1px solid rgba(255,193,7,0.3); color:var(--yellow); }
+  .rbtn.active { filter:brightness(1.4); transform:scale(1.05); }
+  .rbtn-del { background:none; border:none; color:var(--dim); cursor:pointer; font-size:12px; padding:2px 5px; }
+  .rbtn-del:hover { color:var(--red); }
+  .profit-pos { color:var(--green); }
+  .profit-neg { color:var(--red); }
+  .empty-state { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:32px; }
+
+  /* ROI curve mini */
+  .roi-chart { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px; }
+  .roi-chart-title { font-size:10px; color:var(--muted); font-family:var(--mono); letter-spacing:0.08em; margin-bottom:8px; }
+  #roi-canvas { width:100%; height:60px; display:block; }
 
   /* ticker */
   .ticker { width: 100%; max-width: 760px; padding: 4px 14px; background: rgba(0,229,184,0.025); border-bottom: 1px solid rgba(0,229,184,0.06); overflow: hidden; }
@@ -439,6 +488,7 @@
       <button class="install-btn" id="install-btn" onclick="pwaInstall()" title="Instalar app en tu celular">📲 INSTALAR</button>
       <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
       <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear oportunidades Stake 8+">🔍 SCAN</button>
+      <button class="tracker-btn" onclick="openTracker()" title="Bankroll & Historial">📊 TRACKER</button>
       <button class="icon-btn" title="Cambiar API Key" onclick="goSetup()">🔑</button>
       <button class="icon-btn" title="Borrar historial" onclick="clearHistory()">🗑</button>
       <button class="txt-btn" onclick="logout()">SALIR</button>
@@ -494,6 +544,67 @@
       <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
     <div class="input-footer">GROQ · LLAMA 3.3 70B · ESPN HOY · NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
+  </div>
+</div>
+
+<!-- ════════════ TRACKER ════════════ -->
+<div id="screen-tracker" class="screen">
+  <div class="tracker-header">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">📊</span>
+      <span class="tracker-title">BANKROLL TRACKER</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="tracker-user-lbl"></span>
+      <button class="tracker-btn" onclick="closeTracker()">← CHAT</button>
+    </div>
+  </div>
+  <div class="tracker-body">
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-val" id="st-roi">0%</div><div class="stat-lbl">ROI</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-profit">$0</div><div class="stat-lbl">GANANCIA NETA</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-wr">0%</div><div class="stat-lbl">WIN RATE</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-streak">0</div><div class="stat-lbl">RACHA ACTUAL</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="st-total">0</div><div class="stat-lbl">TOTAL TIPS</div></div>
+      <div class="stat-card"><div class="stat-val profit-pos" id="st-wins">0</div><div class="stat-lbl">GANADOS ✅</div></div>
+      <div class="stat-card"><div class="stat-val profit-neg" id="st-losses">0</div><div class="stat-lbl">PERDIDOS ❌</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-void">0</div><div class="stat-lbl">NULOS ➖</div></div>
+    </div>
+
+    <!-- ROI curve -->
+    <div class="roi-chart">
+      <div class="roi-chart-title">CURVA DE BENEFICIO (unidades)</div>
+      <canvas id="roi-canvas"></canvas>
+    </div>
+
+    <!-- Add tip form -->
+    <div class="add-tip-form">
+      <div class="form-title">▸ REGISTRAR APUESTA</div>
+      <div class="form-grid">
+        <input class="finp form-full" id="f-match" placeholder="Partido (ej: Lakers vs Celtics)" />
+        <input class="finp" id="f-pick" placeholder="Pick (ej: Lakers -4.5)" />
+        <input class="finp" id="f-market" placeholder="Mercado (ej: Hándicap)" />
+        <input class="finp" type="number" id="f-stake-num" placeholder="Stake 1-10" min="1" max="10" />
+        <input class="finp" type="number" id="f-odds" placeholder="Cuota (ej: 1.90)" step="0.01" min="1.01" />
+        <input class="finp" type="number" id="f-units" placeholder="Unidades (ej: 1)" step="0.5" min="0.5" />
+        <select class="finp" id="f-league">
+          <option value="">Liga...</option>
+          <option>NBA</option><option>Premier League</option><option>LaLiga</option>
+          <option>Serie A</option><option>Bundesliga</option><option>Ligue 1</option>
+          <option>Champions League</option><option>Europa League</option>
+          <option>Liga BetPlay</option><option>Liga MX</option>
+          <option>Copa Libertadores</option><option>Copa Sudamericana</option><option>Otra</option>
+        </select>
+        <input class="finp" id="f-date" type="date" />
+      </div>
+      <button class="btn-add" onclick="addTip()">+ REGISTRAR TIP</button>
+    </div>
+
+    <!-- Tips list -->
+    <div id="tips-list"></div>
   </div>
 </div>
 
@@ -868,65 +979,91 @@ async function loadNBAInjuries() {
   } catch { injuryCtx = ""; }
 }
 
-// ── The Odds API — real odds for NBA + top soccer ────────────
+// ── The Odds API — all available leagues + EU bookmakers + pre-calculated edge ──
 async function loadOdds() {
   if (!oddsKey) { oddsCtx = ""; return; }
   try {
-    // Fetch NBA moneyline + spread + totals
-    const sports = ["basketball_nba", "soccer_epl", "soccer_spain_la_liga"];
-    const markets = "h2h,spreads,totals";
-    const bookmakers = "bet365,draftkings,fanduel,betmgm";
+    const sports = [
+      { key: "basketball_nba",              label: "🏀 NBA" },
+      { key: "soccer_epl",                  label: "⚽ Premier League" },
+      { key: "soccer_spain_la_liga",        label: "⚽ LaLiga" },
+      { key: "soccer_italy_serie_a",        label: "⚽ Serie A" },
+      { key: "soccer_germany_bundesliga",   label: "⚽ Bundesliga" },
+      { key: "soccer_france_ligue_one",     label: "⚽ Ligue 1" },
+      { key: "soccer_uefa_champs_league",   label: "🏆 Champions League" },
+      { key: "soccer_uefa_europa_league",   label: "🏆 Europa League" },
+      { key: "soccer_colombia_primera_a",   label: "🇨🇴 Liga BetPlay" },
+      { key: "soccer_mexico_ligamx",        label: "🇲🇽 Liga MX" },
+      { key: "soccer_conmebol_libertadores",label: "🏆 Copa Libertadores" },
+    ];
+    // EU/LATAM focused bookmakers — relevant for Colombian users
+    const bookmakers = "bet365,unibet,pinnacle,betfair,williamhill";
+    const markets    = "h2h,totals";  // skip spreads to save API quota
     const parts = [];
 
-    await Promise.allSettled(sports.map(async (sport) => {
+    await Promise.allSettled(sports.map(async ({ key, label }) => {
       try {
-        const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${oddsKey}&regions=us,eu&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        const url = `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${oddsKey}&regions=eu&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
         if (!r.ok) return;
         const games = await r.json();
         if (!Array.isArray(games) || !games.length) return;
 
-        const sportLabel = sport === "basketball_nba" ? "🏀 NBA" :
-                           sport === "soccer_epl"     ? "⚽ Premier League" :
-                                                        "⚽ LaLiga";
-        const lines = games.slice(0, 8).map(g => {
-          const home = g.home_team;
-          const away = g.away_team;
-          // Aggregate best odds across bookmakers
-          let bestH2H_home = null, bestH2H_away = null;
-          let bestSpread = null, bestTotal = null;
+        const valueBets = [];
+        const lines = games.slice(0, 6).map(g => {
+          const home = g.home_team, away = g.away_team;
+          let bestHome = 0, bestAway = 0, bestDraw = 0, bestTotal = null;
 
           for (const bm of (g.bookmakers || [])) {
             for (const mkt of (bm.markets || [])) {
               if (mkt.key === "h2h") {
                 for (const o of mkt.outcomes) {
-                  if (o.name === home && (!bestH2H_home || o.price > bestH2H_home)) bestH2H_home = o.price;
-                  if (o.name === away && (!bestH2H_away || o.price > bestH2H_away)) bestH2H_away = o.price;
+                  if (o.name === home  && o.price > bestHome)  bestHome  = o.price;
+                  if (o.name === away  && o.price > bestAway)  bestAway  = o.price;
+                  if (o.name === "Draw"&& o.price > bestDraw) bestDraw  = o.price;
                 }
               }
-              if (mkt.key === "spreads" && !bestSpread) {
-                const ho = mkt.outcomes.find(o => o.name === home);
-                if (ho) bestSpread = `${home} ${ho.point > 0 ? '+' : ''}${ho.point} @${ho.price}`;
-              }
               if (mkt.key === "totals" && !bestTotal) {
-                const over = mkt.outcomes.find(o => o.name === "Over");
-                if (over) bestTotal = `O/U ${over.point} @${over.price}`;
+                const ov = mkt.outcomes.find(o => o.name === "Over");
+                if (ov) bestTotal = `O/U ${ov.point}`;
               }
             }
           }
-          const h2h  = (bestH2H_away && bestH2H_home) ? `H2H: ${away}@${bestH2H_away} / ${home}@${bestH2H_home}` : "";
-          const sprd = bestSpread ? `| ${bestSpread}` : "";
-          const tot  = bestTotal  ? `| ${bestTotal}`  : "";
-          // Implied probability for value detection
-          const impliedHome = bestH2H_home ? (1/bestH2H_home*100).toFixed(1)+"%" : "";
-          return `  • ${away} vs ${home} | ${h2h} ${sprd} ${tot}${impliedHome ? ' | Prob impl. casa: '+impliedHome : ''}`;
-        });
-        parts.push(`${sportLabel} ODDS EN VIVO:\n${lines.join("\n")}`);
+
+          // Pre-calculate implied probabilities (remove margin for fair odds)
+          const rawSum = (bestHome ? 1/bestHome : 0) + (bestAway ? 1/bestAway : 0) + (bestDraw ? 1/bestDraw : 0);
+          const fairHome  = bestHome  ? ((1/bestHome)  / rawSum * 100).toFixed(1) : null;
+          const fairAway  = bestAway  ? ((1/bestAway)  / rawSum * 100).toFixed(1) : null;
+          const fairDraw  = bestDraw  ? ((1/bestDraw)  / rawSum * 100).toFixed(1) : null;
+          const margin    = rawSum > 0 ? ((rawSum - 1) * 100).toFixed(1) : null;
+
+          // Detect potential value: high odds with decent implied probability
+          if (bestAway > 2.5 && fairAway && parseFloat(fairAway) > 30) {
+            valueBets.push(`  ⚡ VALUE CANDIDATE: ${away} @${bestAway} (prob justa ${fairAway}%) — cuota alta, revisar`);
+          }
+          if (bestHome > 2.5 && fairHome && parseFloat(fairHome) > 30) {
+            valueBets.push(`  ⚡ VALUE CANDIDATE: ${home} @${bestHome} (prob justa ${fairHome}%) — cuota alta, revisar`);
+          }
+
+          const h2hStr = [
+            bestAway  ? `${away}@${bestAway}(${fairAway}%)`   : null,
+            bestDraw  ? `Empate@${bestDraw}(${fairDraw}%)`    : null,
+            bestHome  ? `${home}@${bestHome}(${fairHome}%)`   : null,
+          ].filter(Boolean).join(" | ");
+
+          return `  • ${away} vs ${home} → ${h2hStr}${bestTotal ? ` | ${bestTotal}` : ""}${margin ? ` | Margen ${margin}%` : ""}`;
+        }).filter(Boolean);
+
+        let section = `${label}:\n${lines.join("\n")}`;
+        if (valueBets.length) section += `\n${valueBets.join("\n")}`;
+        parts.push(section);
       } catch {}
     }));
 
     oddsCtx = parts.length
-      ? "💰 **CUOTAS REALES (The Odds API):**\n" + parts.join("\n\n")
+      ? `💰 CUOTAS REALES + PROBABILIDADES JUSTAS (The Odds API — bookmakers EU):\n` +
+        `INSTRUCCIÓN: prob% ya tiene margen eliminado = probabilidad real del mercado. Edge = tu estimación - prob%. Solo apuesta si edge ≥5%.\n\n` +
+        parts.join("\n\n")
       : "";
   } catch { oddsCtx = ""; }
 }
@@ -1672,7 +1809,214 @@ function startCountdown(elementId, totalSecs) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  PWA — INSTALL PROMPT + SERVICE WORKER
+//  BANKROLL TRACKER
+// ══════════════════════════════════════════════════════════════
+function getTips() {
+  const acc = getAccount(currentUser);
+  return (acc && acc.tips) ? acc.tips : [];
+}
+function saveTips(tips) {
+  const acc = getAccount(currentUser);
+  if (acc) saveAccount(currentUser, { ...acc, tips });
+}
+
+function openTracker() {
+  document.getElementById("tracker-user-lbl").textContent = "@" + currentUser;
+  // Set today's date as default
+  const today = new Date();
+  const yy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById("f-date").value = `${yy}-${mm}-${dd}`;
+  showScreen("tracker");
+  renderTracker();
+}
+
+function closeTracker() { showScreen("chat"); }
+
+function addTip() {
+  const match   = document.getElementById("f-match").value.trim();
+  const pick    = document.getElementById("f-pick").value.trim();
+  const market  = document.getElementById("f-market").value.trim();
+  const stakeN  = parseFloat(document.getElementById("f-stake-num").value) || 5;
+  const odds    = parseFloat(document.getElementById("f-odds").value) || 0;
+  const units   = parseFloat(document.getElementById("f-units").value) || 1;
+  const league  = document.getElementById("f-league").value;
+  const date    = document.getElementById("f-date").value;
+
+  if (!match || !pick || odds < 1.01) {
+    alert("Completa al menos: Partido, Pick y Cuota."); return;
+  }
+
+  const tip = {
+    id: Date.now(),
+    match, pick, market, stake: stakeN, odds, units, league,
+    date: date || new Date().toISOString().slice(0,10),
+    result: null   // null=pendiente, 'W'=won, 'L'=lost, 'V'=void
+  };
+
+  const tips = getTips();
+  tips.unshift(tip);
+  saveTips(tips);
+
+  // Clear form
+  ["f-match","f-pick","f-market","f-odds","f-units"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("f-stake-num").value = "";
+  document.getElementById("f-league").value = "";
+
+  renderTracker();
+}
+
+function setResult(id, result) {
+  const tips = getTips();
+  const tip = tips.find(t => t.id === id);
+  if (!tip) return;
+  tip.result = tip.result === result ? null : result; // toggle
+  saveTips(tips);
+  renderTracker();
+}
+
+function deleteTip(id) {
+  if (!confirm("¿Eliminar este tip?")) return;
+  saveTips(getTips().filter(t => t.id !== id));
+  renderTracker();
+}
+
+function renderTracker() {
+  const tips = getTips();
+
+  // ── Stats ──────────────────────────────────────────────────
+  const settled = tips.filter(t => t.result && t.result !== 'V');
+  const wins    = tips.filter(t => t.result === 'W');
+  const losses  = tips.filter(t => t.result === 'L');
+  const voids   = tips.filter(t => t.result === 'V');
+
+  // Profit in units: win = units*(odds-1), loss = -units
+  let profit = 0, invested = 0;
+  tips.forEach(t => {
+    if (t.result === 'W') { profit += t.units * (t.odds - 1); invested += t.units; }
+    else if (t.result === 'L') { profit -= t.units; invested += t.units; }
+  });
+  const roi    = invested > 0 ? ((profit / invested) * 100).toFixed(1) : "0.0";
+  const wr     = settled.length > 0 ? ((wins.length / settled.length) * 100).toFixed(0) : "0";
+
+  // Racha actual
+  let streak = 0, streakType = "";
+  for (const t of tips) {
+    if (!t.result || t.result === 'V') break;
+    if (!streakType) streakType = t.result;
+    if (t.result === streakType) streak++;
+    else break;
+  }
+  const streakStr = streak > 0 ? `${streakType === 'W' ? '✅' : '❌'} ${streak}` : "—";
+
+  document.getElementById("st-roi").textContent    = `${roi}%`;
+  document.getElementById("st-roi").className      = "stat-val " + (parseFloat(roi) >= 0 ? "profit-pos" : "profit-neg");
+  document.getElementById("st-profit").textContent = `${profit >= 0 ? "+" : ""}${profit.toFixed(1)}u`;
+  document.getElementById("st-profit").className   = "stat-val " + (profit >= 0 ? "profit-pos" : "profit-neg");
+  document.getElementById("st-wr").textContent     = `${wr}%`;
+  document.getElementById("st-streak").textContent = streakStr;
+  document.getElementById("st-total").textContent  = tips.length;
+  document.getElementById("st-wins").textContent   = wins.length;
+  document.getElementById("st-losses").textContent = losses.length;
+  document.getElementById("st-void").textContent   = voids.length;
+
+  // ── ROI curve ──────────────────────────────────────────────
+  drawROICurve(tips);
+
+  // ── Tips list ──────────────────────────────────────────────
+  const list = document.getElementById("tips-list");
+  if (!tips.length) {
+    list.innerHTML = `<div class="empty-state">📋 Aún no has registrado ningún tip.<br>¡Agrega tu primera apuesta arriba!</div>`;
+    return;
+  }
+
+  list.innerHTML = tips.map(t => {
+    const resultColor = t.result === 'W' ? 'var(--green)' : t.result === 'L' ? 'var(--red)' : t.result === 'V' ? 'var(--yellow)' : 'var(--muted)';
+    const resultLabel = t.result === 'W' ? '✅ GANADO' : t.result === 'L' ? '❌ PERDIDO' : t.result === 'V' ? '➖ NULO' : '⏳ PENDIENTE';
+    const profitStr   = t.result === 'W' ? `+${(t.units*(t.odds-1)).toFixed(2)}u` : t.result === 'L' ? `-${t.units}u` : '';
+    return `
+    <div class="tip-row">
+      <div class="tip-row-info">
+        <div class="tip-row-match">${t.match}</div>
+        <div class="tip-row-meta">${t.date}${t.league ? ' · '+t.league : ''} · Stake ${t.stake}/10 · @${t.odds} · ${t.units}u</div>
+        <div class="tip-row-pick">${t.pick}${t.market ? ' ('+t.market+')' : ''}</div>
+        <div style="font-size:10px;margin-top:3px;color:${resultColor};font-family:var(--mono)">${resultLabel}${profitStr ? ' · '+profitStr : ''}</div>
+      </div>
+      <div class="result-btns">
+        <button class="rbtn rbtn-w ${t.result==='W'?'active':''}" onclick="setResult(${t.id},'W')">W</button>
+        <button class="rbtn rbtn-l ${t.result==='L'?'active':''}" onclick="setResult(${t.id},'L')">L</button>
+        <button class="rbtn rbtn-v ${t.result==='V'?'active':''}" onclick="setResult(${t.id},'V')">V</button>
+        <button class="rbtn-del" onclick="deleteTip(${t.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function drawROICurve(tips) {
+  const canvas = document.getElementById("roi-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  // Build cumulative profit series (oldest first)
+  const settled = [...tips].reverse().filter(t => t.result === 'W' || t.result === 'L');
+  if (settled.length < 2) {
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.font = "10px IBM Plex Mono"; ctx.textAlign = "center";
+    ctx.fillText("Registra más tips para ver la curva", W/2, H/2);
+    return;
+  }
+  const points = [0];
+  let cum = 0;
+  settled.forEach(t => {
+    cum += t.result === 'W' ? t.units * (t.odds - 1) : -t.units;
+    points.push(cum);
+  });
+
+  const minP = Math.min(...points), maxP = Math.max(...points);
+  const range = maxP - minP || 1;
+  const pad = 6;
+
+  const toX = i => pad + (i / (points.length - 1)) * (W - pad * 2);
+  const toY = v => H - pad - ((v - minP) / range) * (H - pad * 2);
+
+  // Zero line
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, toY(0)); ctx.lineTo(W, toY(0)); ctx.stroke();
+
+  // Fill
+  const lastProfit = points[points.length - 1];
+  const lineColor  = lastProfit >= 0 ? "#2ecc71" : "#ff4757";
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, lastProfit >= 0 ? "rgba(46,204,113,0.25)" : "rgba(255,71,87,0.25)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(points[0]));
+  points.forEach((v, i) => { if (i > 0) ctx.lineTo(toX(i), toY(v)); });
+  ctx.lineTo(toX(points.length-1), H);
+  ctx.lineTo(toX(0), H);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2;
+  ctx.moveTo(toX(0), toY(points[0]));
+  points.forEach((v, i) => { if (i > 0) ctx.lineTo(toX(i), toY(v)); });
+  ctx.stroke();
+
+  // Last value label
+  ctx.fillStyle = lineColor; ctx.font = "bold 10px IBM Plex Mono"; ctx.textAlign = "right";
+  ctx.fillText(`${lastProfit >= 0 ? "+" : ""}${lastProfit.toFixed(2)}u`, W - 4, 14);
+}
+
 // ══════════════════════════════════════════════════════════════
 let _pwaPrompt = null;
 
