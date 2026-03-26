@@ -5,162 +5,269 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ProTipster IA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0d0f14;
-    --surface: #151820;
-    --surface2: #1a1f2c;
-    --border: rgba(255,255,255,0.07);
-    --accent: #00d4aa;
-    --accent2: #0097a7;
-    --text: #e2e8f0;
-    --muted: #475569;
-    --dim: #334155;
+    --bg: #080b10;
+    --surface: #0f1318;
+    --surface2: #151b24;
+    --surface3: #1a2232;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --accent: #00e5b8;
+    --accent2: #00a896;
+    --accent-dim: rgba(0,229,184,0.12);
+    --red: #ff4757;
+    --red-dim: rgba(255,71,87,0.12);
+    --yellow: #ffc107;
+    --yellow-dim: rgba(255,193,7,0.12);
+    --green: #2ecc71;
+    --green-dim: rgba(46,204,113,0.12);
+    --blue: #3d9eff;
+    --text: #dde4ef;
+    --muted: #4a5568;
+    --dim: #2d3748;
+    --mono: 'IBM Plex Mono', monospace;
   }
   html, body { height: 100%; background: var(--bg); font-family: 'Barlow Condensed', sans-serif; color: var(--text); }
-  input, textarea, button { font-family: inherit; }
+  input, textarea, button, select { font-family: inherit; }
   ::-webkit-scrollbar { width: 3px; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,229,184,0.15); border-radius: 3px; }
 
   /* ── Screens ── */
   .screen { display: none; min-height: 100vh; }
   .screen.active { display: flex; }
 
-  /* ── Login / Setup ── */
+  /* ── Auth ── */
   #screen-login, #screen-setup {
     align-items: center; justify-content: center; padding: 24px;
+    background: radial-gradient(ellipse 600px 600px at 50% 0%, rgba(0,229,184,0.04) 0%, transparent 70%);
   }
-  .auth-box { width: 100%; max-width: 360px; }
+  .auth-box { width: 100%; max-width: 380px; }
   .logo-wrap { text-align: center; margin-bottom: 32px; }
   .logo-icon {
-    width: 64px; height: 64px; border-radius: 18px;
+    width: 68px; height: 68px; border-radius: 20px;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     display: flex; align-items: center; justify-content: center;
-    font-size: 32px; margin: 0 auto 12px;
-    box-shadow: 0 0 36px rgba(0,212,170,0.25);
+    font-size: 34px; margin: 0 auto 14px;
+    box-shadow: 0 0 48px rgba(0,229,184,0.28), 0 0 80px rgba(0,229,184,0.1);
   }
-  .logo-title { font-size: 26px; font-weight: 700; letter-spacing: 0.05em; }
-  .logo-sub { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 5px; letter-spacing: 0.08em; }
-  .tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 18px; }
-  .tab-btn { flex: 1; padding: 9px 0; border-radius: 9px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; letter-spacing: 0.05em; transition: all .2s; }
+  .logo-title { font-size: 28px; font-weight: 800; letter-spacing: 0.08em; }
+  .logo-sub { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 6px; letter-spacing: 0.12em; }
+  .tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 16px; }
+  .tab-btn { flex: 1; padding: 10px 0; border-radius: 9px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; transition: all .2s; }
   .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--bg); }
-  .field-group { display: flex; flex-direction: column; gap: 11px; }
+  .field-group { display: flex; flex-direction: column; gap: 10px; }
   .inp {
-    width: 100%; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px;
+    width: 100%; background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 12px 15px; color: var(--text); font-size: 14px;
     letter-spacing: 0.02em; outline: none; transition: border-color .2s;
   }
-  .inp:focus { border-color: rgba(0,212,170,0.35); }
+  .inp:focus { border-color: rgba(0,229,184,0.4); }
   .inp::placeholder { color: var(--dim); }
-  .err-msg { color: #f87171; font-size: 11px; font-family: 'IBM Plex Mono', monospace; text-align: center; min-height: 16px; }
+  .err-msg { color: #f87171; font-size: 11px; font-family: var(--mono); text-align: center; min-height: 16px; }
   .btn-primary {
     width: 100%; padding: 14px 0; border-radius: 11px; border: none; cursor: pointer;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: var(--bg); font-weight: 700; font-size: 15px; letter-spacing: 0.08em;
-    box-shadow: 0 4px 24px rgba(0,212,170,0.22); transition: all .2s;
+    color: var(--bg); font-weight: 800; font-size: 15px; letter-spacing: 0.1em;
+    box-shadow: 0 4px 28px rgba(0,229,184,0.25); transition: all .2s;
   }
-  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 36px rgba(0,229,184,0.35); }
   .btn-primary:disabled { background: rgba(255,255,255,0.05); color: var(--dim); box-shadow: none; cursor: default; transform: none; }
 
-  /* ── Setup steps ── */
-  .steps-box { background: var(--surface); border: 1px solid rgba(0,212,170,0.15); border-radius: 14px; padding: 18px 20px; margin-bottom: 18px; }
-  .steps-title { color: var(--accent); font-size: 11px; font-family: 'IBM Plex Mono', monospace; font-weight: 700; letter-spacing: 0.1em; margin-bottom: 12px; }
+  /* ── Setup ── */
+  .steps-box { background: var(--surface); border: 1px solid rgba(0,229,184,0.12); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+  .steps-title { color: var(--accent); font-size: 10px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.12em; margin-bottom: 12px; }
   .step { display: flex; gap: 10px; margin-bottom: 9px; align-items: flex-start; }
-  .step-num { width: 20px; height: 20px; border-radius: 50%; background: rgba(0,212,170,0.12); border: 1px solid rgba(0,212,170,0.3); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--accent); font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; margin-top: 1px; }
-  .step span { color: #94a3b8; font-size: 13px; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: rgba(0,229,184,0.1); border: 1px solid rgba(0,229,184,0.3); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--accent); font-family: var(--mono); flex-shrink: 0; margin-top: 1px; }
+  .step span { color: #94a3b8; font-size: 13px; line-height: 1.4; }
   .step a { color: var(--accent); text-decoration: none; }
   .step a:hover { text-decoration: underline; }
   .key-wrap { position: relative; }
-  .key-wrap .inp { padding-right: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .key-wrap .inp { padding-right: 44px; font-family: var(--mono); font-size: 12px; }
   .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; }
-  .hint-text { text-align: center; color: var(--dim); font-size: 10px; font-family: 'IBM Plex Mono', monospace; margin-top: 6px; }
+  .hint-text { text-align: center; color: var(--dim); font-size: 10px; font-family: var(--mono); margin-top: 4px; }
 
   /* ── Chat ── */
   #screen-chat { flex-direction: column; align-items: center; }
+
+  /* Header */
   .header {
-    width: 100%; max-width: 740px; padding: 10px 16px;
-    background: rgba(13,15,20,0.97); backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(0,212,170,0.1);
+    width: 100%; max-width: 760px; padding: 8px 14px;
+    background: rgba(8,11,16,0.97); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,229,184,0.1);
     position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
   }
-  .header-left { display: flex; align-items: center; gap: 10px; }
-  .hdr-icon { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 0 14px rgba(0,212,170,0.22); }
-  .hdr-name { font-size: 16px; font-weight: 700; letter-spacing: 0.05em; }
+  .header-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .hdr-icon { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 0 12px rgba(0,229,184,0.22); }
+  .hdr-name { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; }
   .hdr-status { display: flex; align-items: center; gap: 5px; margin-top: 1px; }
-  .dot-live { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 5px #22c55e; }
-  .hdr-sub { color: var(--muted); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
-  .header-right { display: flex; gap: 5px; align-items: center; }
-  .stake-pill { padding: 2px 6px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .dot-live { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .hdr-sub { color: var(--muted); font-size: 9px; font-family: var(--mono); letter-spacing: 0.05em; }
+
+  /* Colombia clock */
+  .col-clock { font-family: var(--mono); font-size: 11px; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,229,184,0.2); border-radius: 6px; padding: 3px 8px; letter-spacing: 0.05em; white-space: nowrap; }
+
+  .header-right { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .stake-pill { padding: 2px 6px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); font-size: 9px; color: var(--muted); font-family: var(--mono); display: none; }
+  @media(min-width:520px){ .stake-pill { display: inline-block; } }
   .icon-btn { padding: 4px 7px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 12px; transition: all .15s; }
-  .icon-btn:hover { border-color: rgba(0,212,170,0.3); color: var(--accent); }
-  .txt-btn { padding: 4px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 10px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; transition: all .15s; }
+  .icon-btn:hover { border-color: rgba(0,229,184,0.35); color: var(--accent); }
+  .txt-btn { padding: 4px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em; transition: all .15s; }
   .txt-btn:hover { border-color: rgba(239,68,68,0.4); color: #f87171; }
+  .live-btn { padding: 4px 9px; border-radius: 6px; background: var(--red-dim); border: 1px solid rgba(255,71,87,0.3); color: var(--red); cursor: pointer; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; transition: all .15s; }
+  .live-btn:hover { background: rgba(255,71,87,0.2); }
+  .live-btn.spinning { animation: spin .7s linear infinite; }
+  @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
 
   /* ticker */
-  .ticker { width: 100%; max-width: 740px; padding: 5px 16px; background: rgba(0,212,170,0.03); border-bottom: 1px solid rgba(0,212,170,0.07); overflow: hidden; }
-  .ticker-text { color: #1e6b5e; font-size: 9px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ticker { width: 100%; max-width: 760px; padding: 4px 14px; background: rgba(0,229,184,0.025); border-bottom: 1px solid rgba(0,229,184,0.06); overflow: hidden; }
+  .ticker-text { color: rgba(0,229,184,0.4); font-size: 9px; font-family: var(--mono); letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* live alert banner */
+  .live-banner { width: 100%; max-width: 760px; display: none; }
+  .live-banner.show { display: block; }
+  .live-banner-inner { background: linear-gradient(90deg, rgba(255,71,87,0.08), rgba(255,71,87,0.04)); border-bottom: 1px solid rgba(255,71,87,0.15); padding: 5px 14px; display: flex; gap: 10px; overflow-x: auto; }
+  .live-game-chip { flex-shrink: 0; background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.25); border-radius: 6px; padding: 4px 10px; font-size: 10px; font-family: var(--mono); color: #ff8a94; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .live-game-chip:hover { background: rgba(255,71,87,0.2); }
+  .live-game-chip strong { color: var(--red); }
 
   /* messages */
-  .messages { flex: 1; width: 100%; max-width: 740px; padding: 20px 16px; overflow-y: auto; }
-  .msg-wrap { animation: slideUp .28s ease forwards; margin-bottom: 20px; }
+  .messages { flex: 1; width: 100%; max-width: 760px; padding: 18px 14px; overflow-y: auto; }
+  .msg-wrap { animation: slideUp .28s ease forwards; margin-bottom: 18px; }
   @keyframes slideUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
-  .msg-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-  .msg-sender { font-size: 11px; color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-weight: 700; letter-spacing: 0.1em; }
-  .stake-badge { padding: 2px 9px; border-radius: 20px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+
+  .msg-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+  .msg-sender { font-size: 10px; color: var(--accent); font-family: var(--mono); font-weight: 700; letter-spacing: 0.1em; }
+  .stake-badge { padding: 2px 9px; border-radius: 20px; font-size: 10px; font-family: var(--mono); font-weight: 700; }
+
+  /* STEAM badge */
+  .steam-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.3); font-size: 10px; color: var(--yellow); font-family: var(--mono); font-weight: 700; letter-spacing: 0.06em; }
+
   .bubble {
-    max-width: 86%; padding: 11px 15px; font-size: 13.5px; line-height: 1.72;
+    max-width: 88%; padding: 12px 15px; font-size: 14px; line-height: 1.75;
     border-radius: 3px 16px 16px 16px;
     background: var(--surface); border: 1px solid var(--border);
   }
   .bubble.user {
     margin-left: auto; border-radius: 16px 16px 3px 16px;
-    background: linear-gradient(135deg, #1e3a5f, #1a3354);
-    border: 1px solid rgba(59,130,246,0.25);
-    box-shadow: 0 4px 20px rgba(30,58,95,0.35);
+    background: linear-gradient(135deg, #1a3558, #152b48);
+    border: 1px solid rgba(61,158,255,0.2);
+    box-shadow: 0 4px 20px rgba(20,50,100,0.35);
   }
   .bubble-wrap-user { display: flex; flex-direction: column; align-items: flex-end; }
-  .you-label { color: var(--dim); font-size: 10px; font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
+  .you-label { color: var(--dim); font-size: 9px; font-family: var(--mono); margin-top: 3px; }
   .bubble strong { color: var(--accent); font-weight: 700; }
-  .bubble hr { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 8px 0; }
+  .bubble hr { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 9px 0; }
+  .bubble p { margin: 0; }
+  .bubble p + p { margin-top: 2px; }
+
+  /* tip card */
+  .tip-card { background: linear-gradient(135deg, rgba(0,229,184,0.04), rgba(0,168,150,0.03)); border: 1px solid rgba(0,229,184,0.15); border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+  .tip-card-header { font-size: 11px; color: var(--accent); font-family: var(--mono); letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 700; }
 
   /* typing */
-  .typing-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .typing-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
   .typing-bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 3px 16px 16px 16px; padding: 10px 16px; display: flex; gap: 5px; align-items: center; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.1s ease-in-out infinite; }
   .dot:nth-child(2) { animation-delay: .18s; }
   .dot:nth-child(3) { animation-delay: .36s; }
   @keyframes blink { 0%,80%,100% { opacity:.3; transform:scale(1); } 40% { opacity:1; transform:scale(1.3); } }
-  .typing-label { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 6px; }
+  .typing-label { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-left: 6px; }
+  .typing-steps { color: var(--accent); font-size: 9px; font-family: var(--mono); margin-left: 4px; opacity: 0.7; }
 
   /* quick prompts */
-  .quick-wrap { width: 100%; max-width: 740px; padding: 0 16px 10px; display: flex; gap: 7px; flex-wrap: wrap; }
-  .qbtn { padding: 6px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 12px; cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: 0.03em; transition: all .2s; }
-  .qbtn:hover { background: rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.35); color: var(--accent); }
+  .quick-wrap { width: 100%; max-width: 760px; padding: 0 14px 10px; display: flex; gap: 7px; flex-wrap: wrap; }
+  .qbtn { padding: 6px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 12px; cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 0.03em; transition: all .2s; }
+  .qbtn:hover { background: var(--accent-dim); border-color: rgba(0,229,184,0.35); color: var(--accent); }
 
-  /* input bar */
-  .input-bar { width: 100%; max-width: 740px; padding: 10px 16px 20px; background: rgba(13,15,20,0.97); border-top: 1px solid rgba(255,255,255,0.05); }
+  /* input */
+  .input-bar { width: 100%; max-width: 760px; padding: 8px 14px 18px; background: rgba(8,11,16,0.97); border-top: 1px solid rgba(255,255,255,0.05); }
   .input-inner { display: flex; gap: 8px; align-items: flex-end; background: var(--surface); border: 1px solid rgba(255,255,255,0.09); border-radius: 13px; padding: 8px 8px 8px 14px; transition: border-color .2s; }
-  .input-inner:focus-within { border-color: rgba(0,212,170,0.25); }
-  #msg-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: 'Barlow Condensed', sans-serif; line-height: 1.5; resize: none; max-height: 100px; overflow: auto; letter-spacing: 0.02em; }
+  .input-inner:focus-within { border-color: rgba(0,229,184,0.25); }
+  #msg-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.02em; line-height: 1.5; resize: none; max-height: 100px; overflow: auto; }
   #msg-input::placeholder { color: var(--dim); }
   .send-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all .2s; flex-shrink: 0; background: rgba(255,255,255,0.04); color: var(--muted); }
-  .send-btn.ready { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--bg); box-shadow: 0 0 12px rgba(0,212,170,0.28); }
+  .send-btn.ready { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--bg); box-shadow: 0 0 14px rgba(0,229,184,0.3); }
   .send-btn.ready:hover { filter: brightness(1.1); transform: scale(1.05); }
-  .input-footer { text-align: center; margin-top: 6px; color: #1e293b; font-size: 9px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.06em; }
+  .input-footer { text-align: center; margin-top: 5px; color: #1a2535; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; }
+
+  /* ── STAKE 10 ALERT ── */
+  .stake10-alert {
+    margin-bottom: 6px;
+    border-radius: 10px;
+    overflow: hidden;
+    animation: stake10pop .5s cubic-bezier(0.175,0.885,0.32,1.275) forwards;
+  }
+  @keyframes stake10pop {
+    0%  { opacity:0; transform: scale(0.92) translateY(6px); }
+    100%{ opacity:1; transform: scale(1) translateY(0); }
+  }
+  .stake10-inner {
+    background: linear-gradient(135deg, rgba(255,193,7,0.1), rgba(255,140,0,0.08));
+    border: 1px solid rgba(255,193,7,0.5);
+    border-radius: 10px;
+    padding: 12px 15px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stake10-inner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,193,7,0.06), transparent);
+    animation: shimmer 2.5s infinite;
+  }
+  @keyframes shimmer {
+    0%  { transform: translateX(-100%); }
+    100%{ transform: translateX(100%); }
+  }
+  .stake10-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative;
+  }
+  .stake10-flame { font-size: 22px; animation: flicker 1.2s ease-in-out infinite alternate; }
+  @keyframes flicker {
+    0%  { transform: scale(1) rotate(-2deg); filter: brightness(1); }
+    100%{ transform: scale(1.15) rotate(2deg); filter: brightness(1.3); }
+  }
+  .stake10-title { font-size: 14px; font-weight: 800; color: #ffc107; letter-spacing: 0.1em; font-family: var(--mono); }
+  .stake10-sub { font-size: 9px; color: rgba(255,193,7,0.6); font-family: var(--mono); letter-spacing: 0.08em; margin-top: 1px; }
+  .stake10-checklist { display: flex; flex-wrap: wrap; gap: 5px; position: relative; }
+  .stake10-check { background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.2); border-radius: 4px; padding: 2px 8px; font-size: 10px; color: rgba(255,193,7,0.8); font-family: var(--mono); }
+  .stake10-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 12px; border-radius: 20px;
+    background: linear-gradient(135deg, rgba(255,193,7,0.2), rgba(255,140,0,0.15));
+    border: 1px solid rgba(255,193,7,0.6);
+    color: #ffc107; font-size: 12px; font-family: var(--mono); font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 0 14px rgba(255,193,7,0.2);
+    animation: glow10 2s ease-in-out infinite alternate;
+  }
+  @keyframes glow10 {
+    0%  { box-shadow: 0 0 8px rgba(255,193,7,0.2); }
+    100%{ box-shadow: 0 0 22px rgba(255,193,7,0.45), 0 0 40px rgba(255,193,7,0.1); }
+  }
+
+  /* context status */
+  .ctx-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  .ctx-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-family: var(--mono); padding: 2px 7px; border-radius: 4px; }
+  .ctx-chip.ok   { background: var(--green-dim); color: var(--green); border: 1px solid rgba(46,204,113,0.2); }
+  .ctx-chip.warn { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,193,7,0.2); }
+  .ctx-chip.err  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,71,87,0.2); }
 </style>
 </head>
 <body>
 
-<!-- ════════════════════════════ LOGIN ════════════════════════════ -->
+<!-- ════════════ LOGIN ════════════ -->
 <div id="screen-login" class="screen active">
   <div class="auth-box">
     <div class="logo-wrap">
       <div class="logo-icon">🎯</div>
       <div class="logo-title">PROTIPSTER IA</div>
-      <div class="logo-sub">NBA · FÚTBOL MUNDIAL · GROQ AI</div>
+      <div class="logo-sub">NBA · FÚTBOL MUNDIAL · GROQ AI · HORA COLOMBIA</div>
     </div>
     <div class="tabs">
       <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Iniciar sesión</button>
@@ -175,7 +282,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════ SETUP ════════════════════════════ -->
+<!-- ════════════ SETUP ════════════ -->
 <div id="screen-setup" class="screen">
   <div class="auth-box">
     <div class="logo-wrap">
@@ -184,11 +291,11 @@
       <div class="logo-sub" id="setup-sub">@usuario</div>
     </div>
     <div class="steps-box">
-      <div class="steps-title">CÓMO OBTENER TU KEY GRATIS</div>
+      <div class="steps-title">▸ CÓMO OBTENER TU KEY GRATIS</div>
       <div class="step"><div class="step-num">1</div><span>Ve a <a href="https://console.groq.com" target="_blank">console.groq.com</a></span></div>
-      <div class="step"><div class="step-num">2</div><span>Crea cuenta con Google o email (gratis)</span></div>
-      <div class="step"><div class="step-num">3</div><span>Menú lateral → <strong>API Keys</strong> → Create API Key</span></div>
-      <div class="step"><div class="step-num">4</div><span>Copia la key y pégala aquí abajo</span></div>
+      <div class="step"><div class="step-num">2</div><span>Crea cuenta con Google o email</span></div>
+      <div class="step"><div class="step-num">3</div><span>Menú lateral → <strong style="color:var(--accent)">API Keys</strong> → Create API Key</span></div>
+      <div class="step"><div class="step-num">4</div><span>Copia la key y pégala abajo</span></div>
     </div>
     <div class="field-group">
       <div class="key-wrap">
@@ -202,8 +309,9 @@
   </div>
 </div>
 
-<!-- ════════════════════════════ CHAT ════════════════════════════ -->
+<!-- ════════════ CHAT ════════════ -->
 <div id="screen-chat" class="screen">
+
   <div class="header">
     <div class="header-left">
       <div class="hdr-icon">🎯</div>
@@ -215,10 +323,12 @@
         </div>
       </div>
     </div>
+    <div class="col-clock" id="col-clock">🕐 --:--:-- COL</div>
     <div class="header-right">
       <span class="stake-pill">🟢1-4</span>
       <span class="stake-pill">🟡5-8</span>
       <span class="stake-pill">🔴9-10</span>
+      <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
       <button class="icon-btn" title="Cambiar API Key" onclick="goSetup()">🔑</button>
       <button class="icon-btn" title="Borrar historial" onclick="clearHistory()">🗑</button>
       <button class="txt-btn" onclick="logout()">SALIR</button>
@@ -229,21 +339,29 @@
     <div class="ticker-text" id="ticker-text">📡 CARGANDO DATOS...</div>
   </div>
 
+  <!-- Live games banner -->
+  <div class="live-banner" id="live-banner">
+    <div class="live-banner-inner" id="live-banner-inner"></div>
+  </div>
+
   <div class="messages" id="messages"></div>
 
   <div class="quick-wrap" id="quick-wrap">
-    <button class="qbtn" onclick="sendQuick(this)">¿Qué partidos hay hoy en NBA?</button>
-    <button class="qbtn" onclick="sendQuick(this)">Dame el mejor tip de hoy</button>
-    <button class="qbtn" onclick="sendQuick(this)">Analiza la Premier League de hoy</button>
-    <button class="qbtn" onclick="sendQuick(this)">Tips Liga BetPlay Colombia</button>
+    <button class="qbtn" onclick="sendQuick(this)">🏀 Partidos NBA hoy</button>
+    <button class="qbtn" onclick="sendQuick(this)">⚡ Mejor tip ahora mismo</button>
+    <button class="qbtn" onclick="sendQuick(this)">⚽ Premier League de hoy</button>
+    <button class="qbtn" onclick="sendQuick(this)">🇨🇴 Liga BetPlay Colombia</button>
+    <button class="qbtn" onclick="sendQuick(this)">📊 Analiza los partidos en vivo</button>
+    <button class="qbtn" onclick="sendQuick(this)">🔥 Detecta steam moves hoy</button>
   </div>
 
   <div class="input-bar">
+    <div class="ctx-row" id="ctx-row"></div>
     <div class="input-inner">
-      <textarea id="msg-input" rows="1" placeholder="Partido, liga, mercado... o dame info extra (lesiones, cuotas...)" oninput="onInputChange()" onkeydown="onInputKey(event)"></textarea>
+      <textarea id="msg-input" rows="1" placeholder="Partido, liga, mercado, cuotas... o dame info extra (lesiones, alineaciones)" oninput="onInputChange()" onkeydown="onInputKey(event)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
-    <div class="input-footer">GROQ AI · LLAMA 3.3 70B · ESPN LIVE DATA · HISTORIAL GUARDADO</div>
+    <div class="input-footer">GROQ AI · LLAMA 3.3 70B · ESPN + NBA DATA · HORA COLOMBIA · HISTORIAL POR CUENTA</div>
   </div>
 </div>
 
@@ -251,30 +369,62 @@
 // ══════════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════════
-let currentUser = null;   // username string
+let currentUser = null;
 let groqKey     = "";
-let messages    = [];     // [{role, content}]
+let messages    = [];
 let sportsCtx   = "";
+let nbaLineups  = "";
+let liveGames   = [];
 let isLoading   = false;
 let authTab     = "login";
+let clockTimer  = null;
+let dataLoaded  = false;
 
 const MAX_MSGS  = 60;
-const STORE_PFX = "protipster_v1_";
+const STORE_PFX = "protipster_v2_";
 
 // ══════════════════════════════════════════════════════════════
-//  STORAGE helpers (localStorage — works in standalone)
+//  COLOMBIA CLOCK (UTC-5)
+// ══════════════════════════════════════════════════════════════
+function getColombiaTime() {
+  const now = new Date();
+  // Colombia is UTC-5 (no DST)
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const colMs = utcMs - 5 * 3600000;
+  return new Date(colMs);
+}
+
+function formatColTime(d) {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `🕐 ${hh}:${mm}:${ss} COL`;
+}
+
+function formatColDateFull(d) {
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} COL`;
+}
+
+function startClock() {
+  const el = document.getElementById("col-clock");
+  function tick() {
+    el.textContent = formatColTime(getColombiaTime());
+  }
+  tick();
+  clockTimer = setInterval(tick, 1000);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STORAGE
 // ══════════════════════════════════════════════════════════════
 function loadAccounts() {
-  try { return JSON.parse(localStorage.getItem(STORE_PFX + "accounts") || "{}"); }
-  catch { return {}; }
+  try { return JSON.parse(localStorage.getItem(STORE_PFX + "accounts") || "{}"); } catch { return {}; }
 }
-function saveAccounts(obj) {
-  localStorage.setItem(STORE_PFX + "accounts", JSON.stringify(obj));
-}
+function saveAccounts(obj) { localStorage.setItem(STORE_PFX + "accounts", JSON.stringify(obj)); }
 function getAccount(u) { return loadAccounts()[u] || null; }
-function saveAccount(u, data) {
-  const all = loadAccounts(); all[u] = data; saveAccounts(all);
-}
+function saveAccount(u, data) { const all = loadAccounts(); all[u] = data; saveAccounts(all); }
 
 // ══════════════════════════════════════════════════════════════
 //  SCREENS
@@ -290,7 +440,7 @@ function showScreen(id) {
 function switchTab(t) {
   authTab = t;
   document.getElementById("tab-login").classList.toggle("active", t === "login");
-  document.getElementById("tab-reg").classList.toggle("active",   t === "reg");
+  document.getElementById("tab-reg").classList.toggle("active", t === "reg");
   document.getElementById("login-btn").textContent = t === "login" ? "ENTRAR" : "CREAR CUENTA";
   document.getElementById("login-err").textContent = "";
 }
@@ -317,8 +467,8 @@ function doAuth() {
 
 function loginUser(u, acc) {
   currentUser = u;
-  groqKey     = acc.groqKey || "";
-  messages    = acc.messages || [];
+  groqKey = acc.groqKey || "";
+  messages = acc.messages || [];
   document.getElementById("hdr-user").textContent = "Groq · @" + u;
   if (!groqKey) {
     document.getElementById("setup-sub").textContent = "@" + u;
@@ -329,7 +479,8 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; messages = []; sportsCtx = "";
+  currentUser = null; groqKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = [];
+  if (clockTimer) clearInterval(clockTimer);
   document.getElementById("login-user").value = "";
   document.getElementById("login-pass").value = "";
   showScreen("login");
@@ -346,15 +497,14 @@ function goSetup() {
 }
 function toggleEye() {
   const inp = document.getElementById("key-input");
-  const btn = document.getElementById("eye-btn");
   inp.type = inp.type === "password" ? "text" : "password";
-  btn.textContent = inp.type === "password" ? "👁" : "🙈";
+  document.getElementById("eye-btn").textContent = inp.type === "password" ? "👁" : "🙈";
 }
 function saveKey() {
-  const k   = document.getElementById("key-input").value.trim();
+  const k = document.getElementById("key-input").value.trim();
   const err = document.getElementById("key-err");
   if (!k.startsWith("gsk_")) { err.textContent = "La key debe empezar con 'gsk_'"; return; }
-  if (k.length < 40)         { err.textContent = "La key parece muy corta, revísala."; return; }
+  if (k.length < 40) { err.textContent = "La key parece muy corta, revísala."; return; }
   groqKey = k;
   const acc = getAccount(currentUser);
   if (acc) saveAccount(currentUser, { ...acc, groqKey: k });
@@ -364,13 +514,14 @@ function saveKey() {
 // ══════════════════════════════════════════════════════════════
 //  CHAT
 // ══════════════════════════════════════════════════════════════
-const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster** con motor Groq ⚡ — respuestas en segundos.\n\nCargo datos en tiempo real de NBA y fútbol antes de cada análisis. Dame un partido, liga o mercado y entrego el tip completo con stake justificado.\n\n¿Arrancamos?" };
+const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster** con motor Groq ⚡\n\n🇨🇴 Trabajo en **hora Colombia (UTC-5)** — todos los horarios que te doy están ajustados para ti.\n\n📡 Cargo en tiempo real:\n- Marcadores y partidos **en vivo** (NBA + fútbol)\n- **Alineaciones confirmadas** de NBA\n- Contexto de lesiones y rotaciones\n- Detección de **Steam Moves** (movimientos de línea)\n\nDame un partido, liga o mercado y entrego análisis completo con stake justificado. ¿Arrancamos?" };
 
 function openChat() {
   showScreen("chat");
+  startClock();
   if (messages.length === 0) messages = [WELCOME];
   renderMessages();
-  loadESPN();
+  refreshData();
   setTimeout(() => document.getElementById("msg-input").focus(), 200);
 }
 
@@ -388,7 +539,9 @@ function persist() {
   saveAccount(currentUser, { ...acc, messages: messages.slice(-MAX_MSGS), lastActive: Date.now() });
 }
 
-// ── ESPN data ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  DATA LOADING
+// ══════════════════════════════════════════════════════════════
 const ESPN_ENDPOINTS = [
   { label: "NBA",              sport: "🏀", url: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard" },
   { label: "Premier League",   sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
@@ -397,152 +550,322 @@ const ESPN_ENDPOINTS = [
   { label: "Champions League", sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
   { label: "Serie A",          sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard" },
   { label: "Bundesliga",       sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
+  { label: "Copa Libertadores","sport": "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard" },
+  { label: "MLS",              sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
 ];
 
 async function loadESPN() {
-  const ticker = document.getElementById("ticker");
-  const tickerText = document.getElementById("ticker-text");
-  ticker.style.display = "block";
-  tickerText.textContent = "📡 Cargando datos deportivos...";
   const parts = [];
+  liveGames = [];
+  const colNow = getColombiaTime();
+  const colStr = formatColDateFull(colNow);
+
   await Promise.allSettled(ESPN_ENDPOINTS.map(async (ep) => {
     try {
-      const r = await fetch(ep.url, { signal: AbortSignal.timeout(5000) });
+      const r = await fetch(ep.url, { signal: AbortSignal.timeout(6000) });
       if (!r.ok) return;
       const d = await r.json();
       const events = d?.events || [];
       if (!events.length) return;
+
       const lines = events.map(ev => {
         const comp = ev.competitions?.[0];
         const comps = comp?.competitors || [];
         const home = comps.find(c => c.homeAway === "home") || comps[0];
         const away = comps.find(c => c.homeAway === "away") || comps[1];
         const status = comp?.status?.type?.description || "";
-        const live = status.toLowerCase().includes("progress") || status.toLowerCase().includes("vivo") || status.toLowerCase().includes("half");
-        const date = ev.date ? new Date(ev.date).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" }) : "";
-        return `  • ${away?.team?.displayName||"?"} (${away?.records?.[0]?.summary||""}) vs ${home?.team?.displayName||"?"} (${home?.records?.[0]?.summary||""})${live ? ` [${away?.score||"-"}-${home?.score||"-"}] 🔴VIVO` : ""} | ${status} | ${date}`;
+        const detail = comp?.status?.displayClock || "";
+        const period = comp?.status?.period || "";
+        const rawDate = ev.date ? new Date(ev.date) : null;
+        const utcMs = rawDate ? rawDate.getTime() : 0;
+        const colMs = utcMs - 5 * 3600000;
+        const colDate = rawDate ? new Date(colMs) : null;
+        const colTimeStr = colDate ? `${String(colDate.getHours()).padStart(2,'0')}:${String(colDate.getMinutes()).padStart(2,'0')} COL` : "";
+
+        const homeName = home?.team?.displayName || "?";
+        const awayName = away?.team?.displayName || "?";
+        const homeScore = home?.score || "-";
+        const awayScore = away?.score || "-";
+        const homeRec = home?.records?.[0]?.summary || "";
+        const awayRec = away?.records?.[0]?.summary || "";
+
+        // Detect live
+        const isLive = status.toLowerCase().includes("progress") ||
+                       status.toLowerCase().includes("half") ||
+                       status.toLowerCase().includes("vivo") ||
+                       status.toLowerCase().includes("in progress");
+
+        if (isLive) {
+          liveGames.push({
+            league: ep.label,
+            sport: ep.sport,
+            home: homeName,
+            away: awayName,
+            homeScore, awayScore,
+            detail, period,
+          });
+        }
+
+        const liveTag = isLive
+          ? ` [${awayScore}-${homeScore}] 🔴EN VIVO${detail ? ` (${detail}${period ? ` P${period}` : ''})` : ""}`
+          : "";
+
+        return `  • ${awayName}${awayRec ? ` (${awayRec})` : ""} vs ${homeName}${homeRec ? ` (${homeRec})` : ""}${liveTag} | ${status}${colTimeStr ? ` | ${colTimeStr}` : ""}`;
       });
-      parts.push(`${ep.sport} ${ep.label}:\n${lines.join("\n")}`);
+
+      parts.push(`${ep.sport} **${ep.label}** (${lines.length} partidos):\n${lines.join("\n")}`);
     } catch {}
   }));
-  sportsCtx = parts.join("\n\n");
-  if (sportsCtx) {
-    tickerText.textContent = "📡 DATOS LIVE · " + sportsCtx.split("\n")[0];
-  } else {
-    ticker.style.display = "none";
+
+  sportsCtx = `📅 Fecha/Hora Colombia: ${colStr}\n\n` + parts.join("\n\n");
+  return parts.length > 0;
+}
+
+async function loadNBALineups() {
+  // balldontlie API v1 - free, no key needed for basic endpoints
+  try {
+    // Get today's NBA games
+    const colNow = getColombiaTime();
+    const y = colNow.getFullYear();
+    const m = String(colNow.getMonth() + 1).padStart(2, '0');
+    const day = String(colNow.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${day}`;
+
+    const r = await fetch(`https://api.balldontlie.io/v1/games?dates[]=${todayStr}&per_page=20`, {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    const games = d?.data || [];
+    if (!games.length) {
+      nbaLineups = "No hay partidos NBA programados hoy según balldontlie.";
+      return true;
+    }
+
+    const lines = games.map(g => {
+      const home = g.home_team;
+      const away = g.visitor_team;
+      const status = g.status || "";
+      const hs = g.home_team_score || 0;
+      const as = g.visitor_team_score || 0;
+      const isLive = !isNaN(parseInt(status)) || status.toLowerCase().includes("qtr") || status.toLowerCase().includes("half");
+      const scoreTag = (hs || as) ? ` [${as}-${hs}]${isLive ? " 🔴" : ""}` : "";
+      return `  • ${away.full_name} @ ${home.full_name}${scoreTag} | ${status}`;
+    });
+
+    nbaLineups = `🏀 Partidos NBA hoy (${todayStr} - hora UTC, ajusta -5 para Colombia):\n${lines.join("\n")}`;
+    return true;
+  } catch {
+    nbaLineups = "";
+    return false;
   }
 }
 
-// ── Render ──────────────────────────────────────────────────────
-function detectStake(text) {
-  const m = text.match(/STAKE[:\s]*(\d{1,2})\s*\/\s*10/i);
-  if (!m) return null;
-  const v = parseInt(m[1]);
-  if (v <= 4) return { v, color: "#22c55e", bg: "rgba(34,197,94,0.12)", label: "BAJO",  emoji: "🟢" };
-  if (v <= 8) return { v, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "MEDIO", emoji: "🟡" };
-  return       { v, color: "#ef4444", bg: "rgba(239,68,68,0.12)",   label: "ALTO",  emoji: "🔴" };
-}
+async function refreshData() {
+  const btn = document.getElementById("refresh-btn");
+  btn.classList.add("spinning");
+  updateCtxChips("loading");
 
-function renderMD(text) {
-  return text
-    .split("\n")
-    .map(line => {
-      if (line.trim() === "---") return "<hr/>";
-      const escaped = line.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      const bolded  = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      return "<p>" + bolded + "</p>";
-    })
-    .join("");
-}
+  try {
+    const [espnOk, nbaOk] = await Promise.allSettled([loadESPN(), loadNBALineups()]);
+    dataLoaded = true;
 
-function renderMessages() {
-  const el = document.getElementById("messages");
-  el.innerHTML = "";
-  messages.forEach(msg => el.appendChild(createBubble(msg)));
-  el.scrollTop = el.scrollHeight;
-  const qw = document.getElementById("quick-wrap");
-  qw.style.display = messages.length <= 1 ? "flex" : "none";
-}
+    // Update ticker
+    const ticker = document.getElementById("ticker");
+    const tickerText = document.getElementById("ticker-text");
+    if (sportsCtx) {
+      ticker.style.display = "block";
+      const liveTags = liveGames.length ? ` · 🔴 ${liveGames.length} EN VIVO` : "";
+      tickerText.textContent = `📡 DATOS LIVE · ${getColombiaTime().toLocaleString('es-CO', {hour:'2-digit', minute:'2-digit'})} COL${liveTags} · ESPN + NBA`;
+    } else {
+      ticker.style.display = "none";
+    }
 
-function createBubble(msg) {
-  const wrap = document.createElement("div");
-  wrap.className = "msg-wrap";
-  if (msg.role === "user") {
-    wrap.innerHTML = `
-      <div class="bubble-wrap-user">
-        <div class="bubble user">${msg.content.replace(/</g,"&lt;")}</div>
-        <span class="you-label">TÚ</span>
-      </div>`;
-  } else {
-    const stake = detectStake(msg.content);
-    const badgeHTML = stake
-      ? `<span class="stake-badge" style="background:${stake.bg};border:1px solid ${stake.color};color:${stake.color}">${stake.emoji} STAKE ${stake.v}/10 — ${stake.label}</span>`
-      : "";
-    wrap.innerHTML = `
-      <div class="msg-meta">
-        <span class="msg-sender">PROTIPSTER</span>
-        ${badgeHTML}
-      </div>
-      <div class="bubble">${renderMD(msg.content)}</div>`;
+    // Update live banner
+    renderLiveBanner();
+    updateCtxChips("ok");
+  } catch {
+    updateCtxChips("err");
   }
-  return wrap;
+
+  btn.classList.remove("spinning");
 }
 
-function appendBubble(msg) {
-  const el = document.getElementById("messages");
-  const b  = createBubble(msg);
-  el.appendChild(b);
-  el.scrollTop = el.scrollHeight;
+function renderLiveBanner() {
+  const banner = document.getElementById("live-banner");
+  const inner = document.getElementById("live-banner-inner");
+  if (!liveGames.length) {
+    banner.classList.remove("show");
+    return;
+  }
+  banner.classList.add("show");
+  inner.innerHTML = liveGames.map(g =>
+    `<div class="live-game-chip" onclick="askAboutLive('${g.away} vs ${g.home}', '${g.league}')">
+      <strong>🔴 ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home}</strong>
+      <span style="color:rgba(255,138,148,0.6);margin-left:5px">${g.league}${g.detail ? ' · ' + g.detail : ''}</span>
+    </div>`
+  ).join("");
 }
 
-function showTyping(label) {
-  removeTyping();
-  const el = document.getElementById("messages");
-  const t  = document.createElement("div");
-  t.id = "typing-indicator";
-  t.className = "msg-wrap typing-wrap";
-  t.innerHTML = `
-    <span class="msg-sender">PROTIPSTER</span>
-    <div class="typing-bubble">
-      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-      <span class="typing-label">${label}</span>
-    </div>`;
-  el.appendChild(t);
-  el.scrollTop = el.scrollHeight;
-}
-
-function removeTyping() {
-  const t = document.getElementById("typing-indicator");
-  if (t) t.remove();
-}
-
-function updateTypingLabel(label) {
-  const t = document.querySelector(".typing-label");
-  if (t) t.textContent = label;
-}
-
-// ── Input handlers ──────────────────────────────────────────────
-function onInputChange() {
-  const ta  = document.getElementById("msg-input");
-  const btn = document.getElementById("send-btn");
-  ta.style.height = "auto";
-  ta.style.height = Math.min(ta.scrollHeight, 100) + "px";
-  btn.classList.toggle("ready", ta.value.trim().length > 0 && !isLoading);
-}
-
-function onInputKey(e) {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-}
-
-function sendQuick(btn) {
-  document.getElementById("msg-input").value = btn.textContent;
+function askAboutLive(matchup, league) {
+  document.getElementById("msg-input").value = `Analiza el partido en vivo: ${matchup} (${league}). ¿Hay valor para apostar ahora?`;
   onInputChange();
   sendMessage();
 }
 
-// ── Send ────────────────────────────────────────────────────────
+function updateCtxChips(state) {
+  const row = document.getElementById("ctx-row");
+  if (state === "loading") {
+    row.innerHTML = `<span class="ctx-chip warn">⟳ Cargando datos...</span>`;
+  } else if (state === "ok") {
+    const liveTxt = liveGames.length ? `🔴 ${liveGames.length} vivo` : "Sin partidos live";
+    row.innerHTML = `
+      <span class="ctx-chip ok">✓ ESPN</span>
+      <span class="ctx-chip ok">✓ NBA API</span>
+      <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveTxt}</span>
+      <span class="ctx-chip ok">🇨🇴 Hora COL activa</span>
+    `;
+  } else {
+    row.innerHTML = `<span class="ctx-chip err">⚠ Error cargando datos</span>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SYSTEM PROMPT (potenciado)
+// ══════════════════════════════════════════════════════════════
+function buildSystem() {
+  const colNow = getColombiaTime();
+  const colStr = formatColDateFull(colNow);
+  const colHour = colNow.getHours();
+
+  const timeContext = `## 🕐 HORA ACTUAL COLOMBIA (UTC-5)
+Fecha y hora exacta ahora mismo: **${colStr}**
+IMPORTANTE: Usa SIEMPRE la hora Colombia. Cuando menciones horarios de partidos, convierte a COL (UTC-5).
+Hora del día: ${colHour < 12 ? 'Mañana' : colHour < 17 ? 'Tarde' : 'Noche'} (${colHour}h COL)`;
+
+  const espnSection = sportsCtx ? `## 📡 DATOS EN TIEMPO REAL (ESPN)
+${sportsCtx}` : "";
+
+  const nbaSection = nbaLineups ? `## 🏀 NBA HOY (balldontlie API)
+${nbaLineups}` : "";
+
+  const liveSection = liveGames.length ? `## 🔴 PARTIDOS EN VIVO AHORA MISMO
+${liveGames.map(g => `• ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home} | ${g.league}${g.detail ? ` | ${g.detail}` : ''}`).join("\n")}
+PRIORIDAD: Analiza estos partidos con datos de marcador actual para detectar valor en live betting.` : "";
+
+  return `Eres **ProTipster** — analista de apuestas deportivas profesional con 5 años de experiencia activa. Tu objetivo es generar VALOR REAL para el usuario y que gane dinero con sus apuestas. No eres un bot genérico: eres un tipster serio que maneja conceptos avanzados.
+
+${timeContext}
+
+${espnSection}
+
+${nbaSection}
+
+${liveSection}
+
+## 🎯 TU ESPECIALIDAD
+
+### NBA — Análisis Avanzado
+- **Estadísticas que importan:** ORTG, DRTG, Net Rating, Pace, eFG%, TS%, AST%, TOV%, OREB%
+- **Situaciones de valor:** Back-to-backs (2do partido = fatiga), road trips largos, schedule tight (3 partidos en 4 noches)
+- **Props de jugadores:** Puntos, rebounds, asistencias, triples — busca matchups favorables
+- **Totales:** Pace de ambos equipos, defensa últimas 10, forma del referee en cuanto a ritmo
+- **ATS (Against The Spread):** Cómo cubre cada equipo como favorito vs underdog
+- **Líneas y movimiento:** Si una línea se mueve significativamente (1.5+ puntos o 2+ en totales) SIN razón pública clara, puede indicar sharp action (steam move)
+
+### FÚTBOL — Todos los mercados
+- Ligas: Premier League, LaLiga, Serie A, Bundesliga, Champions League, Copa Libertadores, **Liga BetPlay Colombia**, MLS, Ligue 1
+- **Mercados de valor:** Ambos equipos anotan (BTTS), totales de goles, hándicap asiático, corners, tarjetas
+- **Factores clave:** Motivación (mid-table stalemate = poco interés), fixture, fatiga, clima, árbitros conocidos
+- **Colombia:** Liga BetPlay tiene mercados más ineficientes = más valor para explotar
+
+## 🚨 DETECCIÓN DE STEAM MOVES (OBLIGATORIO CUANDO APLIQUE)
+
+Un **Steam Move** es cuando el dinero "sharp" (apostadores profesionales/sindicatos) entra en masa a un lado:
+- Línea NBA se mueve -3 a -4.5 o total de 220 a 223+ sin noticias públicas
+- Cuotas de fútbol caen de 2.10 a 1.75 en poco tiempo
+- Movimiento CONTRA la acción pública (público apuesta el favorito pero línea sube = sharps en underdog)
+
+**CUANDO DETECTES STEAM: SIEMPRE muestra el badge 🚨 STEAM MOVE DETECTADO y explica el movimiento.**
+
+## ⚡ ANÁLISIS EN VIVO (LIVE BETTING)
+
+Cuando analices un partido en vivo, usa el marcador actual para:
+1. **Detectar estados avanzados:** Si equipo fuerte va perdiendo en el Q2-Q3 o 2do tiempo, puede ser momento de apostar al comeback
+2. **Valor en totales live:** Si el partido va lento (pocos puntos/goles), el total under gana valor
+3. **Momentum:** Cambios de momentum, tiempo muertos, tarjetas recientes
+4. **Siempre menciona el marcador actual y el tiempo de juego al momento del análisis**
+
+## 📊 SISTEMA DE STAKES — OBLIGATORIO EN CADA TIP
+
+- **Stake 1-3 (BAJO):** Valor marginal, apuesta mínima de exploración
+- **Stake 4-6 (MEDIO-BAJO):** Buena lectura pero con incertidumbre relevante
+- **Stake 7-8 (MEDIO-ALTO):** Análisis sólido, valor claro identificado
+- **Stake 9 (PREMIUM):** Muy alta convicción — múltiples factores alineados, valor excepcional
+
+---
+
+## 🔥 STAKE 10 — LA APUESTA DE ORO (REGLAS ESTRICTAS)
+
+El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando se cumplen TODOS estos criterios simultáneamente:
+
+### CHECKLIST OBLIGATORIO PARA STAKE 10 (mínimo 6 de 7 deben cumplirse):
+1. ✅ **FORMA RECIENTE DOMINANTE:** El equipo/jugador lleva 4+ resultados positivos consecutivos con métricas superiores
+2. ✅ **MATCHUP EXTREMADAMENTE FAVORABLE:** La debilidad del rival encaja perfectamente con la fortaleza del seleccionado
+3. ✅ **CONTEXTO/MOTIVACIÓN MÁXIMA:** Partido decisivo, orgullo, clasificación en juego, o racha que defender
+4. ✅ **H2H HISTÓRICO A FAVOR:** Historial reciente dominante en este tipo de enfrentamiento
+5. ✅ **CUOTA MAL CALIBRADA:** El mercado está claramente subestimando las probabilidades reales (mínimo 15% de value)
+6. ✅ **SIN FACTORES DE RIESGO MAYORES:** Sin lesiones clave, sin back-to-back crítico, sin distracción de fixture
+7. ✅ **CONFIRMACIÓN DE SHARP MONEY:** Movimiento de línea favorable o ausencia de acción contraria significativa
+
+### CUANDO DECLARES STAKE 10, DEBES:
+- Escribir la línea exacta: **🔥 STAKE: 10/10 — APUESTA DE ORO**
+- Incluir una sección **CHECKLIST STAKE 10:** con cada factor marcado ✅ o ❌ y explicado
+- Escribir la sección **POR QUÉ AHORA:** explicando la convergencia de factores en este momento específico
+- Mínimo 6-8 párrafos de análisis total
+- Nunca usar Stake 10 más de 1 vez por conversación a menos que sea genuinamente excepcional
+
+**SI DUDAS ENTRE STAKE 9 Y 10 → USA STAKE 9. El 10 es sagrado.**
+
+## 📋 FORMATO OBLIGATORIO DE TIPS
+
+🎯 **[PARTIDO COMPLETO]**
+📅 Fecha/Hora: [HORA EN COLOMBIA — UTC-5]
+🏆 Competición: [liga]
+📡 Estado: [Próximo / 🔴 EN VIVO — marcador actual]
+
+**ANÁLISIS:**
+[Mínimo 4-5 factores específicos: forma reciente, H2H, contexto, lesiones conocidas, situación de schedule, motivación]
+
+**EDGE DETECTADO:**
+[Por qué el mercado tiene precio incorrecto aquí — esta es la razón de apostar]
+
+**APUESTA:**
+- Mercado: [tipo exacto]
+- Selección: [pick exacto]  
+- Cuota objetivo: [mínima que vale la pena]
+- ⚡ **STAKE: X/10** — [BAJO/MEDIO-BAJO/MEDIO-ALTO/PREMIUM]
+- 💬 Justificación stake: [razón concreta]
+
+[Si aplica: 🚨 **STEAM MOVE:** descripción del movimiento detectado]
+
+---
+
+## REGLAS CRÍTICAS
+
+1. **Responde SIEMPRE en español**
+2. **Nunca inventes estadísticas** — si no tienes el dato, dilo y da el mejor análisis posible con lo que tienes
+3. **Siempre completa la respuesta entera** sin cortar
+4. **Sé directo como tipster real** — no des análisis ambiguos tipo "puede que gane o puede que pierda"
+5. **Identifica el EDGE** — siempre explica POR QUÉ la cuota tiene valor, no solo quién va a ganar
+6. **Hora Colombia siempre** — nunca menciones hora UTC o ET sin convertir a COL`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SEND MESSAGE
+// ══════════════════════════════════════════════════════════════
 async function sendMessage() {
-  const ta       = document.getElementById("msg-input");
+  const ta = document.getElementById("msg-input");
   const userText = ta.value.trim();
   if (!userText || isLoading) return;
   ta.value = ""; ta.style.height = "auto";
@@ -552,12 +875,12 @@ async function sendMessage() {
   isLoading = true;
   messages.push({ role: "user", content: userText });
   appendBubble({ role: "user", content: userText });
-  showTyping("Cargando datos deportivos...");
+  showTyping("Cargando datos en tiempo real...");
 
   try {
-    // Refresh ESPN if empty
-    if (!sportsCtx) {
-      try { await loadESPN(); } catch {}
+    // Refresh if no data yet
+    if (!dataLoaded) {
+      await refreshData();
     }
     updateTypingLabel("Analizando con IA...");
 
@@ -574,7 +897,7 @@ async function sendMessage() {
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
         max_tokens: 4096,
-        temperature: 0.65,
+        temperature: 0.6,
       }),
     });
 
@@ -588,7 +911,7 @@ async function sendMessage() {
       throw e?.error?.message || ("HTTP " + resp.status);
     }
 
-    const data  = await resp.json();
+    const data = await resp.json();
     const reply = data.choices?.[0]?.message?.content || "⚠️ Sin respuesta. Intenta de nuevo.";
     messages.push({ role: "assistant", content: reply });
     appendBubble({ role: "assistant", content: reply });
@@ -598,10 +921,10 @@ async function sendMessage() {
     removeTyping();
     let content;
     if (err === "KEY_INVALID") {
-      content = "🔑 **API Key inválida.** Pulsa el botón 🔑 en el header, y verifica que copiaste correctamente tu Groq key desde console.groq.com.";
+      content = "🔑 **API Key inválida.** Pulsa el botón 🔑 en el header y verifica tu Groq key desde console.groq.com.";
     } else if (err === "RATE_LIMIT") {
       content = "⏳ **Límite de Groq alcanzado.** El plan gratuito tiene ~14.400 requests/día. Espera unos minutos e intenta de nuevo.";
-    } else if (typeof err === "string" && err.includes("fetch")) {
+    } else if (typeof err === "string" && err.toLowerCase().includes("fetch")) {
       content = "🌐 **Error de conexión.** Verifica tu internet e intenta de nuevo.";
     } else {
       content = "⚠️ **Error:** " + (err || "Problema desconocido") + ". Intenta de nuevo.";
@@ -615,37 +938,145 @@ async function sendMessage() {
   }
 }
 
-// ── System prompt ───────────────────────────────────────────────
-function buildSystem() {
-  const ctx = sportsCtx ? `## DATOS EN TIEMPO REAL (hoy)\n\n${sportsCtx}\n\n` : "";
-  return `Eres ProTipster — tipster profesional con 5 años de experiencia en NBA y fútbol de todas las ligas del mundo (Liga BetPlay Colombia, Premier League, LaLiga, Serie A, Bundesliga, Champions League, Copa Libertadores y más).
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function detectStake(text) {
+  const m = text.match(/STAKE[:\s]*(\d{1,2})\s*\/\s*10/i);
+  if (!m) return null;
+  const v = parseInt(m[1]);
+  if (v <= 3) return { v, color: "#22c55e", bg: "rgba(34,197,94,0.12)", label: "BAJO", emoji: "🟢", is10: false };
+  if (v <= 6) return { v, color: "#3d9eff", bg: "rgba(61,158,255,0.12)", label: "MEDIO-BAJO", emoji: "🔵", is10: false };
+  if (v <= 8) return { v, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "MEDIO-ALTO", emoji: "🟡", is10: false };
+  if (v === 9) return { v, color: "#ef4444", bg: "rgba(239,68,68,0.12)", label: "PREMIUM", emoji: "🔴", is10: false };
+  return { v, color: "#ffc107", bg: "rgba(255,193,7,0.15)", label: "APUESTA DE ORO", emoji: "🔥", is10: true };
+}
 
-${ctx}## SISTEMA DE STAKES — OBLIGATORIO EN CADA TIP
+function parseStake10Checklist(text) {
+  // Extract checklist items from the response if present
+  const checks = [];
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (line.includes("✅") || line.includes("❌")) {
+      const clean = line.replace(/\*\*/g, "").replace(/^[-•\s]+/, "").trim();
+      if (clean.length > 3 && clean.length < 120) checks.push(clean);
+    }
+  }
+  return checks.slice(0, 7);
+}
 
-Asigna siempre STAKE X/10 según tu confianza:
-- Stake 1-4 (BAJO): Valor detectado, incertidumbre alta
-- Stake 5-8 (MEDIO): Análisis sólido, buen valor
-- Stake 9-10 (ALTO): Máxima convicción, valor excepcional
+function triggerStake10Alert() {
+  // Flash the page title
+  let flashing = true;
+  const origTitle = document.title;
+  const flashInterval = setInterval(() => {
+    document.title = flashing ? "🔥 STAKE 10 — APUESTA DE ORO!" : origTitle;
+    flashing = !flashing;
+  }, 700);
+  setTimeout(() => {
+    clearInterval(flashInterval);
+    document.title = origTitle;
+  }, 10000);
+}
 
-## FORMATO DE TIPS
+function hasSteam(text) {
+  return /steam\s*move/i.test(text);
+}
 
-🎯 **[PARTIDO]**
-📅 Fecha/Hora: [dato]
-🏆 Competición: [liga]
+function renderMD(text) {
+  return text.split("\n").map(line => {
+    if (line.trim() === "---") return "<hr/>";
+    const escaped = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const bolded = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    return "<p>" + bolded + "</p>";
+  }).join("");
+}
 
-**ANÁLISIS:**
-[Análisis completo: forma reciente, H2H, contexto, lesiones, valor en el mercado]
+function createBubble(msg) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg-wrap";
+  if (msg.role === "user") {
+    wrap.innerHTML = `
+      <div class="bubble-wrap-user">
+        <div class="bubble user">${msg.content.replace(/</g,"&lt;")}</div>
+        <span class="you-label">TÚ</span>
+      </div>`;
+  } else {
+    const stake = detectStake(msg.content);
+    const steam = hasSteam(msg.content);
+    const badgeHTML = stake
+      ? `<span class="stake-badge" style="background:${stake.bg};border:1px solid ${stake.color};color:${stake.color}">${stake.emoji} STAKE ${stake.v}/10 — ${stake.label}</span>`
+      : "";
+    const steamHTML = steam
+      ? `<span class="steam-badge">🚨 STEAM MOVE</span>`
+      : "";
+    wrap.innerHTML = `
+      <div class="msg-meta">
+        <span class="msg-sender">PROTIPSTER</span>
+        ${badgeHTML}${steamHTML}
+      </div>
+      <div class="bubble">${renderMD(msg.content)}</div>`;
+  }
+  return wrap;
+}
 
-**APUESTA:**
-- Mercado: [tipo]
-- Selección: [pick exacto]
-- Cuota objetivo: [valor]
-- ⚡ **STAKE: X/10** — [BAJO/MEDIO/ALTO]
-- 💬 Justificación stake: [razón clara]
+function renderMessages() {
+  const el = document.getElementById("messages");
+  el.innerHTML = "";
+  messages.forEach(msg => el.appendChild(createBubble(msg)));
+  el.scrollTop = el.scrollHeight;
+  document.getElementById("quick-wrap").style.display = messages.length <= 1 ? "flex" : "none";
+}
 
----
+function appendBubble(msg) {
+  const el = document.getElementById("messages");
+  el.appendChild(createBubble(msg));
+  el.scrollTop = el.scrollHeight;
+}
 
-Responde siempre en español. Sé directo y profesional. Nunca inventes estadísticas. Completa siempre la respuesta entera.`;
+function showTyping(label) {
+  removeTyping();
+  const el = document.getElementById("messages");
+  const t = document.createElement("div");
+  t.id = "typing-indicator";
+  t.className = "msg-wrap typing-wrap";
+  t.innerHTML = `
+    <span class="msg-sender">PROTIPSTER</span>
+    <div class="typing-bubble">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span class="typing-label" id="typing-lbl">${label}</span>
+    </div>`;
+  el.appendChild(t);
+  el.scrollTop = el.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById("typing-indicator");
+  if (t) t.remove();
+}
+
+function updateTypingLabel(label) {
+  const t = document.getElementById("typing-lbl");
+  if (t) t.textContent = label;
+}
+
+// ── Input ──
+function onInputChange() {
+  const ta = document.getElementById("msg-input");
+  const btn = document.getElementById("send-btn");
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 100) + "px";
+  btn.classList.toggle("ready", ta.value.trim().length > 0 && !isLoading);
+}
+
+function onInputKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function sendQuick(btn) {
+  document.getElementById("msg-input").value = btn.textContent.replace(/^[^\s]+\s/, "");
+  onInputChange();
+  sendMessage();
 }
 </script>
 </body>
