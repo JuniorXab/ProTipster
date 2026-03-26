@@ -251,6 +251,60 @@
     100%{ box-shadow: 0 0 22px rgba(255,193,7,0.45), 0 0 40px rgba(255,193,7,0.1); }
   }
 
+  /* ── Scanner / Auto-refresh ── */
+  .scanner-btn {
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 9px;
+    font-family: var(--mono); letter-spacing: 0.06em; transition: all .2s;
+    background: linear-gradient(135deg, rgba(0,229,184,0.12), rgba(0,168,150,0.08));
+    border: 1px solid rgba(0,229,184,0.3); color: var(--accent);
+  }
+  .scanner-btn:hover { background: rgba(0,229,184,0.2); }
+  .scanner-btn.scanning { animation: scanpulse 1s ease-in-out infinite; }
+  @keyframes scanpulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .live-tracking-bar {
+    width: 100%; max-width: 760px; display: none;
+    background: linear-gradient(90deg, rgba(255,71,87,0.07), rgba(255,71,87,0.04));
+    border-bottom: 1px solid rgba(255,71,87,0.12);
+    padding: 5px 14px; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .live-tracking-bar.show { display: flex; }
+  .live-track-info { font-size: 10px; font-family: var(--mono); color: rgba(255,138,148,0.9); display: flex; align-items: center; gap: 6px; }
+  .live-track-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: pulse 1s infinite; flex-shrink: 0; }
+  .live-track-stop { padding: 2px 8px; border-radius: 4px; background: rgba(255,71,87,0.15); border: 1px solid rgba(255,71,87,0.3); color: var(--red); font-size: 9px; font-family: var(--mono); cursor: pointer; transition: all .15s; }
+  .live-track-stop:hover { background: rgba(255,71,87,0.25); }
+  .live-track-countdown { font-size: 9px; font-family: var(--mono); color: rgba(255,138,148,0.6); min-width: 60px; text-align: right; }
+
+  .auto-refresh-badge {
+    font-size: 9px; font-family: var(--mono); color: rgba(0,229,184,0.5);
+    display: none; align-items: center; gap: 4px;
+  }
+  .auto-refresh-badge.show { display: flex; }
+  .refresh-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); opacity: 0.5; }
+
+  /* scanner notification popup */
+  .scan-notif {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 100; max-width: 340px; width: calc(100% - 32px);
+    background: var(--surface2); border: 1px solid rgba(0,229,184,0.3);
+    border-radius: 12px; padding: 14px 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 24px rgba(0,229,184,0.1);
+    opacity: 0; transition: all .35s cubic-bezier(0.175,0.885,0.32,1.275);
+    pointer-events: none;
+  }
+  .scan-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
+  .scan-notif.stake10-notif { border-color: rgba(255,193,7,0.5); box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 32px rgba(255,193,7,0.15); }
+  .scan-notif-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .scan-notif-title { font-size: 12px; font-family: var(--mono); font-weight: 700; color: var(--accent); letter-spacing: 0.08em; }
+  .scan-notif-title.gold { color: #ffc107; }
+  .scan-notif-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; }
+  .scan-notif-body { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  .scan-notif-action { margin-top: 10px; display: flex; gap: 6px; }
+  .scan-notif-btn { flex: 1; padding: 7px 0; border-radius: 7px; border: none; cursor: pointer; font-size: 11px; font-family: var(--mono); font-weight: 700; transition: all .2s; }
+  .scan-notif-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--bg); }
+  .scan-notif-btn.secondary { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); }
+  .scan-notif-btn.gold-btn { background: linear-gradient(135deg, #ffc107, #ff8c00); color: #0a0b10; }
+
   /* context status */
   .ctx-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
   .ctx-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-family: var(--mono); padding: 2px 7px; border-radius: 4px; }
@@ -284,27 +338,42 @@
 
 <!-- ════════════ SETUP ════════════ -->
 <div id="screen-setup" class="screen">
-  <div class="auth-box">
+  <div class="auth-box" style="max-width:400px">
     <div class="logo-wrap">
-      <div class="logo-icon">🔑</div>
-      <div class="logo-title">GROQ API KEY</div>
+      <div class="logo-icon">⚙️</div>
+      <div class="logo-title">CONFIGURACIÓN</div>
       <div class="logo-sub" id="setup-sub">@usuario</div>
     </div>
+
+    <!-- GROQ -->
     <div class="steps-box">
-      <div class="steps-title">▸ CÓMO OBTENER TU KEY GRATIS</div>
-      <div class="step"><div class="step-num">1</div><span>Ve a <a href="https://console.groq.com" target="_blank">console.groq.com</a></span></div>
-      <div class="step"><div class="step-num">2</div><span>Crea cuenta con Google o email</span></div>
-      <div class="step"><div class="step-num">3</div><span>Menú lateral → <strong style="color:var(--accent)">API Keys</strong> → Create API Key</span></div>
-      <div class="step"><div class="step-num">4</div><span>Copia la key y pégala abajo</span></div>
+      <div class="steps-title">▸ GROQ API KEY (requerida)</div>
+      <div class="step"><div class="step-num">1</div><span>Ve a <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys → Create</span></div>
     </div>
-    <div class="field-group">
+    <div class="field-group" style="margin-bottom:14px">
       <div class="key-wrap">
         <input class="inp" id="key-input" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" onkeydown="if(event.key==='Enter')saveKey()" />
         <button class="eye-btn" onclick="toggleEye()" id="eye-btn">👁</button>
       </div>
+    </div>
+
+    <!-- ODDS API -->
+    <div class="steps-box" style="margin-top:0">
+      <div class="steps-title">▸ THE ODDS API KEY (opcional — cuotas en tiempo real)</div>
+      <div class="step"><div class="step-num">1</div><span>Ve a <a href="https://the-odds-api.com" target="_blank">the-odds-api.com</a> → Get API Key (gratis, 500 req/mes)</span></div>
+    </div>
+    <div class="field-group" style="margin-bottom:14px">
+      <div class="key-wrap">
+        <input class="inp" id="odds-key-input" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (opcional)" />
+        <button class="eye-btn" onclick="toggleOddsEye()" id="odds-eye-btn">👁</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-align:center">Sin key: el modelo estima cuotas. Con key: cuotas reales de Bet365, Betcris y más.</div>
+    </div>
+
+    <div class="field-group">
       <div class="err-msg" id="key-err"></div>
       <button class="btn-primary" onclick="saveKey()">GUARDAR Y EMPEZAR</button>
-      <div class="hint-text">La key se guarda solo en tu dispositivo.</div>
+      <div class="hint-text">Todo se guarda solo en tu dispositivo.</div>
     </div>
   </div>
 </div>
@@ -329,6 +398,7 @@
       <span class="stake-pill">🟡5-8</span>
       <span class="stake-pill">🔴9-10</span>
       <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
+      <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear oportunidades Stake 8+">🔍 SCAN</button>
       <button class="icon-btn" title="Cambiar API Key" onclick="goSetup()">🔑</button>
       <button class="icon-btn" title="Borrar historial" onclick="clearHistory()">🗑</button>
       <button class="txt-btn" onclick="logout()">SALIR</button>
@@ -344,7 +414,29 @@
     <div class="live-banner-inner" id="live-banner-inner"></div>
   </div>
 
+  <!-- Live tracking bar -->
+  <div class="live-tracking-bar" id="live-tracking-bar">
+    <div class="live-track-info">
+      <span class="live-track-dot"></span>
+      <span id="live-track-text">Siguiendo partido en vivo...</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="live-track-countdown" id="live-track-countdown">próximo en --s</span>
+      <button class="live-track-stop" onclick="stopLiveTracking()">■ DETENER</button>
+    </div>
+  </div>
+
   <div class="messages" id="messages"></div>
+
+  <!-- Scanner notification popup -->
+  <div class="scan-notif" id="scan-notif">
+    <div class="scan-notif-header">
+      <span class="scan-notif-title" id="scan-notif-title">🔍 SCANNER</span>
+      <button class="scan-notif-close" onclick="closeScanNotif()">✕</button>
+    </div>
+    <div class="scan-notif-body" id="scan-notif-body">Analizando partidos...</div>
+    <div class="scan-notif-action" id="scan-notif-action"></div>
+  </div>
 
   <div class="quick-wrap" id="quick-wrap">
     <button class="qbtn" onclick="sendQuick(this)">🏀 Partidos NBA hoy</button>
@@ -361,7 +453,7 @@
       <textarea id="msg-input" rows="1" placeholder="Partido, liga, mercado, cuotas... o dame info extra (lesiones, alineaciones)" oninput="onInputChange()" onkeydown="onInputKey(event)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
-    <div class="input-footer">GROQ AI · LLAMA 3.3 70B · ESPN + NBA DATA · HORA COLOMBIA · HISTORIAL POR CUENTA</div>
+    <div class="input-footer">GROQ · DEEPSEEK-R1 · ESPN + NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
   </div>
 </div>
 
@@ -379,6 +471,24 @@ let isLoading   = false;
 let authTab     = "login";
 let clockTimer  = null;
 let dataLoaded  = false;
+
+// Auto-refresh & live tracking
+let autoRefreshTimer   = null;   // refreshes ESPN data every 60s when live games exist
+let liveTrackingTimer  = null;   // countdown timer for next live analysis
+let liveTrackingMatch  = null;   // { home, away, league } being tracked
+let liveTrackCountdown = 0;      // seconds until next auto-analysis
+const LIVE_REFRESH_INTERVAL = 60;    // seconds between data refreshes
+const LIVE_ANALYSIS_INTERVAL = 90;   // seconds between auto live-analyses
+
+// Auto-scanner
+let scannerTimer     = null;
+let scannerInterval  = 8 * 60;  // 8 minutes between auto-scans (seconds)
+let scannerCountdown = 0;
+let lastScanResult   = null;
+
+let oddsKey    = "";   // The Odds API key
+let oddsCtx    = "";   // Real odds data injected into prompt
+let injuryCtx  = "";   // NBA injury report
 
 const MAX_MSGS  = 60;
 const STORE_PFX = "protipster_v2_";
@@ -467,7 +577,8 @@ function doAuth() {
 
 function loginUser(u, acc) {
   currentUser = u;
-  groqKey = acc.groqKey || "";
+  groqKey  = acc.groqKey  || "";
+  oddsKey  = acc.oddsKey  || "";
   messages = acc.messages || [];
   document.getElementById("hdr-user").textContent = "Groq · @" + u;
   if (!groqKey) {
@@ -479,8 +590,11 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = [];
+  currentUser = null; groqKey = ""; oddsKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = "";
   if (clockTimer) clearInterval(clockTimer);
+  stopAutoRefresh();
+  stopLiveTracking();
+  stopAutoScanner();
   document.getElementById("login-user").value = "";
   document.getElementById("login-pass").value = "";
   showScreen("login");
@@ -492,6 +606,7 @@ function logout() {
 function goSetup() {
   document.getElementById("setup-sub").textContent = "@" + currentUser;
   document.getElementById("key-input").value = groqKey || "";
+  document.getElementById("odds-key-input").value = oddsKey || "";
   document.getElementById("key-err").textContent = "";
   showScreen("setup");
 }
@@ -500,21 +615,28 @@ function toggleEye() {
   inp.type = inp.type === "password" ? "text" : "password";
   document.getElementById("eye-btn").textContent = inp.type === "password" ? "👁" : "🙈";
 }
+function toggleOddsEye() {
+  const inp = document.getElementById("odds-key-input");
+  inp.type = inp.type === "password" ? "text" : "password";
+  document.getElementById("odds-eye-btn").textContent = inp.type === "password" ? "👁" : "🙈";
+}
 function saveKey() {
-  const k = document.getElementById("key-input").value.trim();
-  const err = document.getElementById("key-err");
-  if (!k.startsWith("gsk_")) { err.textContent = "La key debe empezar con 'gsk_'"; return; }
-  if (k.length < 40) { err.textContent = "La key parece muy corta, revísala."; return; }
+  const k    = document.getElementById("key-input").value.trim();
+  const ok   = (document.getElementById("odds-key-input")?.value || "").trim();
+  const err  = document.getElementById("key-err");
+  if (!k.startsWith("gsk_")) { err.textContent = "La key de Groq debe empezar con 'gsk_'"; return; }
+  if (k.length < 40) { err.textContent = "La key de Groq parece muy corta, revísala."; return; }
   groqKey = k;
+  oddsKey = ok;
   const acc = getAccount(currentUser);
-  if (acc) saveAccount(currentUser, { ...acc, groqKey: k });
+  if (acc) saveAccount(currentUser, { ...acc, groqKey: k, oddsKey: ok });
   openChat();
 }
 
 // ══════════════════════════════════════════════════════════════
 //  CHAT
 // ══════════════════════════════════════════════════════════════
-const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster** con motor Groq ⚡\n\n🇨🇴 Trabajo en **hora Colombia (UTC-5)** — todos los horarios que te doy están ajustados para ti.\n\n📡 Cargo en tiempo real:\n- Marcadores y partidos **en vivo** (NBA + fútbol)\n- **Alineaciones confirmadas** de NBA\n- Contexto de lesiones y rotaciones\n- Detección de **Steam Moves** (movimientos de línea)\n\nDame un partido, liga o mercado y entrego análisis completo con stake justificado. ¿Arrancamos?" };
+const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster** — ahora con motor **DeepSeek-R1** (razonamiento profundo) ⚡\n\n🇨🇴 Trabajo en **hora Colombia (UTC-5)**\n\n📡 Cargo en tiempo real:\n- Marcadores y partidos **en vivo** (NBA + fútbol)\n- **Injury report NBA** — jugadores fuera/dudosos\n- **Cuotas reales** (Bet365 y más) si tienes Odds API key\n- Detección de **Steam Moves** y **Value Bets** con % de edge\n- Scanner autónomo de oportunidades **Stake 8+**\n\nDame un partido, liga o mercado y entrego análisis con edge calculado. ¿Arrancamos?" };
 
 function openChat() {
   showScreen("chat");
@@ -522,6 +644,8 @@ function openChat() {
   if (messages.length === 0) messages = [WELCOME];
   renderMessages();
   refreshData();
+  startAutoRefresh();
+  startAutoScanner();
   setTimeout(() => document.getElementById("msg-input").focus(), 200);
 }
 
@@ -661,13 +785,111 @@ async function loadNBALineups() {
   }
 }
 
+// ── NBA Injury Report (ESPN) ────────────────────────────────
+async function loadNBAInjuries() {
+  try {
+    const r = await fetch(
+      "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries",
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!r.ok) { injuryCtx = ""; return; }
+    const d = await r.json();
+    const items = d?.injuries || [];
+    if (!items.length) { injuryCtx = ""; return; }
+
+    const lines = [];
+    for (const team of items) {
+      const teamName = team.team?.displayName || "?";
+      const players  = team.injuries || [];
+      for (const p of players) {
+        const name   = p.athlete?.displayName || "?";
+        const pos    = p.athlete?.position?.abbreviation || "";
+        const status = p.status || "";
+        const detail = p.shortComment || p.longComment || "";
+        // Only flag significant absences
+        if (["Out","Doubtful","Questionable"].includes(status)) {
+          lines.push(`  • ${teamName} | ${name}${pos ? ' ('+pos+')' : ''} — ${status}${detail ? ': '+detail : ''}`);
+        }
+      }
+    }
+    injuryCtx = lines.length
+      ? "🏥 **NBA INJURY REPORT (hoy):**\n" + lines.join("\n")
+      : "";
+  } catch { injuryCtx = ""; }
+}
+
+// ── The Odds API — real odds for NBA + top soccer ────────────
+async function loadOdds() {
+  if (!oddsKey) { oddsCtx = ""; return; }
+  try {
+    // Fetch NBA moneyline + spread + totals
+    const sports = ["basketball_nba", "soccer_epl", "soccer_spain_la_liga"];
+    const markets = "h2h,spreads,totals";
+    const bookmakers = "bet365,draftkings,fanduel,betmgm";
+    const parts = [];
+
+    await Promise.allSettled(sports.map(async (sport) => {
+      try {
+        const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${oddsKey}&regions=us,eu&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!r.ok) return;
+        const games = await r.json();
+        if (!Array.isArray(games) || !games.length) return;
+
+        const sportLabel = sport === "basketball_nba" ? "🏀 NBA" :
+                           sport === "soccer_epl"     ? "⚽ Premier League" :
+                                                        "⚽ LaLiga";
+        const lines = games.slice(0, 8).map(g => {
+          const home = g.home_team;
+          const away = g.away_team;
+          // Aggregate best odds across bookmakers
+          let bestH2H_home = null, bestH2H_away = null;
+          let bestSpread = null, bestTotal = null;
+
+          for (const bm of (g.bookmakers || [])) {
+            for (const mkt of (bm.markets || [])) {
+              if (mkt.key === "h2h") {
+                for (const o of mkt.outcomes) {
+                  if (o.name === home && (!bestH2H_home || o.price > bestH2H_home)) bestH2H_home = o.price;
+                  if (o.name === away && (!bestH2H_away || o.price > bestH2H_away)) bestH2H_away = o.price;
+                }
+              }
+              if (mkt.key === "spreads" && !bestSpread) {
+                const ho = mkt.outcomes.find(o => o.name === home);
+                if (ho) bestSpread = `${home} ${ho.point > 0 ? '+' : ''}${ho.point} @${ho.price}`;
+              }
+              if (mkt.key === "totals" && !bestTotal) {
+                const over = mkt.outcomes.find(o => o.name === "Over");
+                if (over) bestTotal = `O/U ${over.point} @${over.price}`;
+              }
+            }
+          }
+          const h2h  = (bestH2H_away && bestH2H_home) ? `H2H: ${away}@${bestH2H_away} / ${home}@${bestH2H_home}` : "";
+          const sprd = bestSpread ? `| ${bestSpread}` : "";
+          const tot  = bestTotal  ? `| ${bestTotal}`  : "";
+          // Implied probability for value detection
+          const impliedHome = bestH2H_home ? (1/bestH2H_home*100).toFixed(1)+"%" : "";
+          return `  • ${away} vs ${home} | ${h2h} ${sprd} ${tot}${impliedHome ? ' | Prob impl. casa: '+impliedHome : ''}`;
+        });
+        parts.push(`${sportLabel} ODDS EN VIVO:\n${lines.join("\n")}`);
+      } catch {}
+    }));
+
+    oddsCtx = parts.length
+      ? "💰 **CUOTAS REALES (The Odds API):**\n" + parts.join("\n\n")
+      : "";
+  } catch { oddsCtx = ""; }
+}
+
 async function refreshData() {
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   updateCtxChips("loading");
 
   try {
-    const [espnOk, nbaOk] = await Promise.allSettled([loadESPN(), loadNBALineups()]);
+    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries()];
+    if (oddsKey) loaders.push(loadOdds());
+    await Promise.allSettled(loaders);
     dataLoaded = true;
 
     // Update ticker
@@ -708,9 +930,15 @@ function renderLiveBanner() {
 }
 
 function askAboutLive(matchup, league) {
-  document.getElementById("msg-input").value = `Analiza el partido en vivo: ${matchup} (${league}). ¿Hay valor para apostar ahora?`;
-  onInputChange();
-  sendMessage();
+  // Parse home/away from "away vs home" format
+  const parts = matchup.split(" vs ");
+  const away = parts[0]?.trim() || matchup;
+  const home = parts[1]?.trim() || matchup;
+  const match = { home, away, league };
+
+  // Start live tracking for this match
+  startLiveTracking(match);
+  document.getElementById("quick-wrap").style.display = "none";
 }
 
 function updateCtxChips(state) {
@@ -718,12 +946,18 @@ function updateCtxChips(state) {
   if (state === "loading") {
     row.innerHTML = `<span class="ctx-chip warn">⟳ Cargando datos...</span>`;
   } else if (state === "ok") {
-    const liveTxt = liveGames.length ? `🔴 ${liveGames.length} vivo` : "Sin partidos live";
+    const liveTxt   = liveGames.length ? `🔴 ${liveGames.length} vivo` : "Sin live";
+    const trackTxt  = liveTrackingMatch ? `⟳ ${liveTrackingMatch.away.split(' ')[0]} vs ${liveTrackingMatch.home.split(' ')[0]}` : "";
+    const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
+    const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
     row.innerHTML = `
       <span class="ctx-chip ok">✓ ESPN</span>
-      <span class="ctx-chip ok">✓ NBA API</span>
+      <span class="ctx-chip ok">✓ NBA</span>
       <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveTxt}</span>
-      <span class="ctx-chip ok">🇨🇴 Hora COL activa</span>
+      <span class="ctx-chip ok">🇨🇴 COL</span>
+      ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
+      ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
+      ${trackTxt? `<span class="ctx-chip err">⟳ ${trackTxt}</span>`: ""}
     `;
   } else {
     row.innerHTML = `<span class="ctx-chip err">⚠ Error cargando datos</span>`;
@@ -753,6 +987,14 @@ ${nbaLineups}` : "";
 ${liveGames.map(g => `• ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home} | ${g.league}${g.detail ? ` | ${g.detail}` : ''}`).join("\n")}
 PRIORIDAD: Analiza estos partidos con datos de marcador actual para detectar valor en live betting.` : "";
 
+  const injurySection = injuryCtx ? `## 🏥 NBA INJURY REPORT — JUGADORES FUERA/DUDOSOS
+${injuryCtx}
+IMPORTANTE: Ten en cuenta estas ausencias al calcular totales, hándicaps y props de jugadores.` : "";
+
+  const oddsSection = oddsCtx ? `## 💰 CUOTAS REALES EN TIEMPO REAL (The Odds API)
+${oddsCtx}
+INSTRUCCIÓN DE VALUE BETTING: Compara las cuotas reales con tu análisis de probabilidades. Si tu estimación da 60% de probabilidad y la cuota implica solo 45%, hay un VALUE BET claro (+15% edge). SIEMPRE menciona el porcentaje de value cuando lo detectes.` : "";
+
   return `Eres **ProTipster** — analista de apuestas deportivas profesional con 5 años de experiencia activa. Tu objetivo es generar VALOR REAL para el usuario y que gane dinero con sus apuestas. No eres un bot genérico: eres un tipster serio que maneja conceptos avanzados.
 
 ${timeContext}
@@ -762,6 +1004,10 @@ ${espnSection}
 ${nbaSection}
 
 ${liveSection}
+
+${injurySection}
+
+${oddsSection}
 
 ## 🎯 TU ESPECIALIDAD
 
@@ -787,6 +1033,17 @@ Un **Steam Move** es cuando el dinero "sharp" (apostadores profesionales/sindica
 - Movimiento CONTRA la acción pública (público apuesta el favorito pero línea sube = sharps en underdog)
 
 **CUANDO DETECTES STEAM: SIEMPRE muestra el badge 🚨 STEAM MOVE DETECTADO y explica el movimiento.**
+
+## 💰 VALUE BETTING CON CUOTAS REALES
+
+Cuando tengas cuotas reales (sección CUOTAS REALES), aplica este proceso:
+1. **Estima la probabilidad real** del resultado basándote en tu análisis (ej: 58%)
+2. **Calcula la probabilidad implícita** de la cuota (ej: cuota 2.10 → 1/2.10 = 47.6%)
+3. **Edge = tu probabilidad - prob. implícita** (ej: 58% - 47.6% = +10.4% edge)
+4. **Solo apuesta si edge ≥ 5%.** A mayor edge, mayor stake justificado.
+5. **Formato obligatorio:** menciona "VALUE: +X%" en la justificación del stake
+
+Ejemplo: "Estimo 62% de probabilidad. Cuota 1.95 implica 51.3%. **VALUE: +10.7%** → Stake 8."
 
 ## ⚡ ANÁLISIS EN VIVO (LIVE BETTING)
 
@@ -862,6 +1119,239 @@ El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando
 }
 
 // ══════════════════════════════════════════════════════════════
+//  AUTO-REFRESH (every 60s when live games exist)
+// ══════════════════════════════════════════════════════════════
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(async () => {
+    // Only refresh if there are live games or it's a good time to check
+    await refreshData();
+    // If we're in live tracking, also trigger a live analysis
+    if (liveTrackingMatch) {
+      liveTrackCountdown = LIVE_ANALYSIS_INTERVAL;
+    }
+  }, LIVE_REFRESH_INTERVAL * 1000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LIVE TRACKING — follows a specific match and auto-analyses
+// ══════════════════════════════════════════════════════════════
+function startLiveTracking(match) {
+  stopLiveTracking();
+  liveTrackingMatch = match;
+  liveTrackCountdown = LIVE_ANALYSIS_INTERVAL;
+
+  const bar = document.getElementById("live-tracking-bar");
+  const txt = document.getElementById("live-track-text");
+  bar.classList.add("show");
+  txt.textContent = `Siguiendo: ${match.away} vs ${match.home} (${match.league})`;
+
+  // Countdown tick every second
+  liveTrackingTimer = setInterval(() => {
+    liveTrackCountdown--;
+    const cd = document.getElementById("live-track-countdown");
+    if (cd) cd.textContent = `próximo análisis en ${liveTrackCountdown}s`;
+
+    if (liveTrackCountdown <= 0) {
+      liveTrackCountdown = LIVE_ANALYSIS_INTERVAL;
+      triggerLiveAnalysis(match);
+    }
+  }, 1000);
+
+  // Immediate first analysis
+  triggerLiveAnalysis(match);
+}
+
+function stopLiveTracking() {
+  if (liveTrackingTimer) { clearInterval(liveTrackingTimer); liveTrackingTimer = null; }
+  liveTrackingMatch = null;
+  liveTrackCountdown = 0;
+  const bar = document.getElementById("live-tracking-bar");
+  if (bar) bar.classList.remove("show");
+}
+
+async function triggerLiveAnalysis(match) {
+  if (isLoading) return; // don't interrupt if user is already chatting
+  // Refresh data first to get latest score
+  await refreshData();
+  // Find current score for this match
+  const current = liveGames.find(g =>
+    g.home.toLowerCase().includes(match.home.toLowerCase().split(' ')[0]) ||
+    g.away.toLowerCase().includes(match.away.toLowerCase().split(' ')[0])
+  );
+  const scoreInfo = current
+    ? `Marcador actual: ${current.away} ${current.awayScore} - ${current.homeScore} ${current.home}${current.detail ? ' | ' + current.detail : ''}`
+    : "Actualiza el marcador con los datos más recientes disponibles.";
+
+  const autoMsg = `[AUTO-SEGUIMIENTO EN VIVO] ${match.away} vs ${match.home} (${match.league}). ${scoreInfo}. Analiza la situación actual del partido: ¿hay valor de apuesta ahora mismo? ¿cambió el momentum? ¿se justifica algún pick live? Sé directo y breve.`;
+
+  // Send silently as a system-triggered message
+  messages.push({ role: "user", content: autoMsg });
+  appendBubble({ role: "user", content: `🔄 Auto-análisis live: ${match.away} vs ${match.home}` });
+  showTyping("Analizando marcador actualizado...");
+  isLoading = true;
+
+  try {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
+      body: JSON.stringify({
+        model: "deepseek-r1-distill-llama-70b",
+        messages: [{ role: "system", content: buildSystem() }, ...messages.map(m => ({ role: m.role, content: m.content }))],
+        max_tokens: 2048,
+        temperature: 0.55,
+      }),
+    });
+    removeTyping();
+    if (resp.ok) {
+      const data = await resp.json();
+      const reply = data.choices?.[0]?.message?.content || "Sin respuesta.";
+      messages.push({ role: "assistant", content: reply });
+      appendBubble({ role: "assistant", content: reply });
+      persist();
+    }
+  } catch {}
+  finally { isLoading = false; }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  AUTO SCANNER — finds Stake 8+ opportunities autonomously
+// ══════════════════════════════════════════════════════════════
+function startAutoScanner() {
+  stopAutoScanner();
+  scannerCountdown = scannerInterval;
+  scannerTimer = setInterval(async () => {
+    scannerCountdown--;
+    if (scannerCountdown <= 0) {
+      scannerCountdown = scannerInterval;
+      await runScanner(true); // true = silent (auto-triggered)
+    }
+  }, 1000);
+}
+
+function stopAutoScanner() {
+  if (scannerTimer) { clearInterval(scannerTimer); scannerTimer = null; }
+}
+
+async function runScanner(silent = false) {
+  const btn = document.getElementById("scanner-btn");
+  if (btn) { btn.classList.add("scanning"); btn.textContent = "🔍 ..."; }
+
+  // Refresh data before scanning
+  await refreshData();
+
+  const scanPrompt = `TAREA DE SCANNER AUTÓNOMO: Analiza TODOS los partidos disponibles en los datos de hoy y busca proactivamente oportunidades de apuesta con Stake 8 o superior.
+
+Para cada partido que identifiques como Stake 8+:
+1. Da el pick concreto
+2. Explica brevemente el edge (2-3 líneas máximo por pick)
+3. Asigna el stake con formato STAKE: X/10
+
+Si encuentras un STAKE 10, usa el formato completo con CHECKLIST STAKE 10.
+
+Si no hay nada con Stake 8+, di exactamente: "SCANNER: Sin oportunidades premium en este momento." y explica por qué.
+
+Sé directo. No analices partidos mediocres. Solo los genuinamente buenos.`;
+
+  try {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
+      body: JSON.stringify({
+        model: "deepseek-r1-distill-llama-70b",
+        messages: [
+          { role: "system", content: buildSystem() },
+          { role: "user", content: scanPrompt }
+        ],
+        max_tokens: 3000,
+        temperature: 0.5,
+      }),
+    });
+
+    if (btn) { btn.classList.remove("scanning"); btn.textContent = "🔍 SCAN"; }
+
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const result = data.choices?.[0]?.message?.content || "";
+    lastScanResult = result;
+
+    const noOpps = result.toLowerCase().includes("sin oportunidades");
+    const hasStake10 = /STAKE[:\s]*10\s*\/\s*10/i.test(result);
+    const highStakes = result.match(/STAKE[:\s]*([89]|10)\s*\/\s*10/gi) || [];
+
+    if (silent && noOpps) return; // don't notify if nothing found and auto-triggered
+
+    if (hasStake10) {
+      showScanNotif(
+        "🔥 ¡STAKE 10 DETECTADO!",
+        `El scanner encontró una APUESTA DE ORO. ${highStakes.length} pick(s) premium identificado(s). ¡Revisa ahora!`,
+        true,
+        result
+      );
+      triggerStake10Alert();
+    } else if (highStakes.length > 0) {
+      showScanNotif(
+        `🔍 ${highStakes.length} OPORTUNIDAD${highStakes.length > 1 ? 'ES' : ''} PREMIUM`,
+        `Scanner detectó ${highStakes.length} pick(s) con Stake 8+. Toca para ver el análisis completo.`,
+        false,
+        result
+      );
+    } else if (!silent) {
+      showScanNotif("🔍 SCANNER COMPLETADO", "No hay oportunidades premium en este momento. Seguiré monitoreando.", false, null);
+    }
+
+  } catch {
+    if (btn) { btn.classList.remove("scanning"); btn.textContent = "🔍 SCAN"; }
+  }
+}
+
+function showScanNotif(title, body, isGold, fullResult) {
+  const notif = document.getElementById("scan-notif");
+  const titleEl = document.getElementById("scan-notif-title");
+  const bodyEl = document.getElementById("scan-notif-body");
+  const actionEl = document.getElementById("scan-notif-action");
+
+  titleEl.textContent = title;
+  titleEl.className = "scan-notif-title" + (isGold ? " gold" : "");
+  bodyEl.textContent = body;
+  notif.className = "scan-notif" + (isGold ? " stake10-notif" : "");
+
+  actionEl.innerHTML = "";
+  if (fullResult) {
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "scan-notif-btn " + (isGold ? "gold-btn" : "primary");
+    viewBtn.textContent = isGold ? "🔥 VER APUESTA DE ORO" : "📊 Ver análisis";
+    viewBtn.onclick = () => { injectScanResult(fullResult); closeScanNotif(); };
+    actionEl.appendChild(viewBtn);
+  }
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "scan-notif-btn secondary";
+  closeBtn.textContent = "Cerrar";
+  closeBtn.onclick = closeScanNotif;
+  actionEl.appendChild(closeBtn);
+
+  notif.classList.add("show");
+  // Auto-hide after 20s if not gold
+  if (!isGold) setTimeout(closeScanNotif, 20000);
+}
+
+function closeScanNotif() {
+  document.getElementById("scan-notif").classList.remove("show");
+}
+
+function injectScanResult(result) {
+  // Inject the scanner result as an assistant message
+  messages.push({ role: "assistant", content: "📡 **RESULTADO SCANNER AUTÓNOMO:**\n\n" + result });
+  appendBubble({ role: "assistant", content: "📡 **RESULTADO SCANNER AUTÓNOMO:**\n\n" + result });
+  persist();
+  document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SEND MESSAGE
 // ══════════════════════════════════════════════════════════════
 async function sendMessage() {
@@ -894,7 +1384,7 @@ async function sendMessage() {
         "Authorization": "Bearer " + groqKey,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "deepseek-r1-distill-llama-70b",
         messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
         max_tokens: 4096,
         temperature: 0.6,
