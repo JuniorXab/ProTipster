@@ -458,7 +458,7 @@
       <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-align:center">Sin key: el modelo estima cuotas. Con key: cuotas reales de Bet365, Betcris y más.</div>
       <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:10px">
         <div style="font-size:10px;color:var(--accent);font-family:var(--mono);letter-spacing:0.1em;margin-bottom:6px;font-weight:700">▸ API-FOOTBALL KEY (opcional)</div>
-        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">Liga B Colombia · Eliminatorias Mundial · Todos los partidos en vivo · 100 req/día gratis en <a href="https://rapidapi.com/api-sports/api/api-football" target="_blank" style="color:var(--accent)">RapidAPI</a></div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">Liga B Colombia · Eliminatorias · Partidos en vivo globales · Plan gratis: 100 req/día en <a href="https://dashboard.api-football.com/register" target="_blank" style="color:var(--accent)">api-football.com</a> → crea cuenta → copia la API Key</div>
         <div class="key-wrap">
           <input class="inp" id="apifootball-key-input" type="password" placeholder="RapidAPI key (opcional)" style="font-family:var(--mono);font-size:12px" />
           <button class="eye-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'">👁</button>
@@ -628,7 +628,8 @@ let apiFootballKey  = "";
 let apiFootballCtx  = "";
 let nbaLineups  = "";
 let liveGames   = [];
-let isLoading   = false;
+let isLoading      = false;
+let isRateLimited  = false;   // true while rate limit countdown is active — blocks sendMessage
 let authTab     = "login";
 let clockTimer  = null;
 let dataLoaded  = false;
@@ -1639,7 +1640,7 @@ function injectScanResult(result) {
 async function sendMessage() {
   const ta = document.getElementById("msg-input");
   const userText = ta.value.trim();
-  if (!userText || isLoading) return;
+  if (!userText || isLoading || isRateLimited) return;
   ta.value = ""; ta.style.height = "auto";
   document.getElementById("send-btn").classList.remove("ready");
   document.getElementById("quick-wrap").style.display = "none";
@@ -1667,19 +1668,37 @@ async function sendMessage() {
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
-          max_tokens: 500,
+          max_tokens: 400,
           temperature: 0.25,
           messages: [
-            { role: "system", content: "Eres un analista de apuestas que razona antes de responder. En máx 6 líneas: (1) qué datos son clave aquí, (2) qué sesgos evitar, (3) existe edge real o no. NO des la respuesta final — solo razonamiento interno conciso." },
+            { role: "system", content: "Analista de apuestas. En máx 5 líneas: (1) datos clave disponibles, (2) sesgo a evitar, (3) ¿hay edge real? Solo razonamiento interno, no la respuesta." },
             ...groqMsgs.slice(-2)
           ]
         })
       });
+      if (thinkResp.status === 429) {
+        // Rate limited on reasoning call — parse and throw
+        const retryAfter = thinkResp.headers.get("retry-after") || "";
+        const e2 = await thinkResp.json().catch(() => ({}));
+        let waitSecs = 60;
+        if (retryAfter && /^\d+$/.test(retryAfter.trim())) waitSecs = parseInt(retryAfter.trim());
+        else {
+          const mSec = (e2?.error?.message || "").match(/try again in ([\d.]+)s/i);
+          const mMin = (e2?.error?.message || "").match(/try again in ([\d.]+)m/i);
+          if (mSec) waitSecs = Math.ceil(parseFloat(mSec[1]));
+          else if (mMin) waitSecs = Math.ceil(parseFloat(mMin[1]) * 60);
+        }
+        throw { type: "RATE_LIMIT", waitSecs };
+      }
       if (thinkResp.ok) {
         const td = await thinkResp.json();
         reasoningCtx = td.choices?.[0]?.message?.content || "";
       }
-    } catch {}
+    } catch (thinkErr) {
+      // If it's a rate limit, propagate it up
+      if (thinkErr && thinkErr.type === "RATE_LIMIT") throw thinkErr;
+      // Otherwise silently skip reasoning
+    }
 
     updateTypingLabel("Elaborando análisis final...");
 
@@ -1738,8 +1757,9 @@ async function sendMessage() {
       content = "🔑 **API Key inválida.** Pulsa el botón 🔑 en el header y verifica tu Groq key desde console.groq.com.";
     } else if (err && err.type === "RATE_LIMIT") {
       const secs = err.waitSecs || 60;
-      // Build a message bubble with live countdown
+      isRateLimited = true;
       const countdownId = "cd_" + Date.now();
+
       content = "⏳ **Límite de Groq alcanzado.**\n" +
         "@@HTML@@<div style=\"margin:8px 0 4px;display:flex;align-items:center;gap:10px\">" +
           "<span style=\"font-size:12px;color:#94a3b8;font-family:monospace\">Recuperando en:</span>" +
@@ -1749,20 +1769,21 @@ async function sendMessage() {
           "<div id=\"" + countdownId + "_bar\" style=\"height:100%;width:100%;background:linear-gradient(90deg,#f59e0b,#ff8c00);border-radius:4px;transition:width 1s linear\"></div>" +
         "</div>\n" +
         "💡 El input se reactiva automáticamente cuando llegue a 0.";
+
       setTimeout(() => {
         startCountdown(countdownId, secs);
-        // Also animate the bar
-        let rem = secs;
-        const bar = document.getElementById(countdownId + "_bar");
         const inp = document.getElementById("msg-input");
         const btn = document.getElementById("send-btn");
+        const bar = document.getElementById(countdownId + "_bar");
         if (inp) inp.disabled = true;
         if (btn) { btn.disabled = true; btn.classList.remove("ready"); }
+        let rem = secs;
         const barIv = setInterval(() => {
           rem--;
           if (bar) bar.style.width = Math.max(0, (rem / secs * 100)) + "%";
           if (rem <= 0) {
             clearInterval(barIv);
+            isRateLimited = false;     // ← unlock sending
             if (inp) { inp.disabled = false; inp.focus(); }
             if (btn) btn.disabled = false;
           }
@@ -1914,7 +1935,7 @@ function onInputChange() {
   const btn = document.getElementById("send-btn");
   ta.style.height = "auto";
   ta.style.height = Math.min(ta.scrollHeight, 100) + "px";
-  btn.classList.toggle("ready", ta.value.trim().length > 0 && !isLoading);
+  btn.classList.toggle("ready", ta.value.trim().length > 0 && !isLoading && !isRateLimited);
 }
 
 function onInputKey(e) {
