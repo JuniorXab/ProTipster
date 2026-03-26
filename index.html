@@ -2,8 +2,44 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>ProTipster IA</title>
+
+<!-- PWA Meta -->
+<meta name="application-name" content="ProTipster IA" />
+<meta name="description" content="Tipster profesional con IA — NBA y Fútbol Mundial" />
+<meta name="theme-color" content="#00d4aa" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="ProTipster" />
+
+<!-- Icons (inline SVG as data URI — no extra files needed) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300d4aa'/><text y='.9em' font-size='75' x='12'>🎯</text></svg>" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300d4aa'/><text y='.9em' font-size='75' x='12'>🎯</text></svg>" />
+
+<!-- Manifest inline via JS (no separate file needed for GitHub Pages) -->
+<script>
+  const _manifest = {
+    name: "ProTipster IA",
+    short_name: "ProTipster",
+    description: "Tipster profesional con IA — NBA y Fútbol Mundial",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#080b10",
+    theme_color: "#00d4aa",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300d4aa'/><text y='.9em' font-size='75' x='12'>🎯</text></svg>", sizes: "192x192", type: "image/svg+xml" },
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300d4aa'/><text y='.9em' font-size='75' x='12'>🎯</text></svg>", sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const _blob = new Blob([JSON.stringify(_manifest)], { type: "application/manifest+json" });
+  const _link = document.createElement("link");
+  _link.rel = "manifest"; _link.href = URL.createObjectURL(_blob);
+  document.currentScript.after(_link);
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
@@ -118,6 +154,9 @@
   .icon-btn:hover { border-color: rgba(0,229,184,0.35); color: var(--accent); }
   .txt-btn { padding: 4px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em; transition: all .15s; }
   .txt-btn:hover { border-color: rgba(239,68,68,0.4); color: #f87171; }
+  .install-btn { display: none; padding: 4px 9px; border-radius: 6px; background: rgba(0,229,184,0.12); border: 1px solid rgba(0,229,184,0.35); color: var(--accent); cursor: pointer; font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em; transition: all .15s; animation: installPulse 2.5s ease-in-out infinite; }
+  .install-btn:hover { background: rgba(0,229,184,0.22); }
+  @keyframes installPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,184,0)} 50%{box-shadow:0 0 8px 2px rgba(0,229,184,0.25)} }
   .live-btn { padding: 4px 9px; border-radius: 6px; background: var(--red-dim); border: 1px solid rgba(255,71,87,0.3); color: var(--red); cursor: pointer; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; transition: all .15s; }
   .live-btn:hover { background: rgba(255,71,87,0.2); }
   .live-btn.spinning { animation: spin .7s linear infinite; }
@@ -397,6 +436,7 @@
       <span class="stake-pill">🟢1-4</span>
       <span class="stake-pill">🟡5-8</span>
       <span class="stake-pill">🔴9-10</span>
+      <button class="install-btn" id="install-btn" onclick="pwaInstall()" title="Instalar app en tu celular">📲 INSTALAR</button>
       <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
       <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear oportunidades Stake 8+">🔍 SCAN</button>
       <button class="icon-btn" title="Cambiar API Key" onclick="goSetup()">🔑</button>
@@ -667,15 +707,20 @@ function persist() {
 //  DATA LOADING
 // ══════════════════════════════════════════════════════════════
 const ESPN_ENDPOINTS = [
-  { label: "NBA",              sport: "🏀", url: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard" },
-  { label: "Premier League",   sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
-  { label: "LaLiga",           sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" },
-  { label: "Liga BetPlay",     sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/col.1/scoreboard" },
-  { label: "Champions League", sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
-  { label: "Serie A",          sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard" },
-  { label: "Bundesliga",       sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
-  { label: "Copa Libertadores","sport": "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard" },
-  { label: "MLS",              sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
+  { label: "NBA",                sport: "🏀", url: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard" },
+  { label: "Premier League",     sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard" },
+  { label: "LaLiga",             sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" },
+  { label: "Liga BetPlay",       sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/col.1/scoreboard" },
+  { label: "Champions League",   sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard" },
+  { label: "Europa League",      sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard" },
+  { label: "Conference League",  sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa.conf/scoreboard" },
+  { label: "Serie A",            sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard" },
+  { label: "Bundesliga",         sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard" },
+  { label: "Ligue 1",            sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard" },
+  { label: "Liga MX",            sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard" },
+  { label: "Copa Libertadores",  sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard" },
+  { label: "Copa Sudamericana",  sport: "🏆", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard" },
+  { label: "MLS",                sport: "⚽", url: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard" },
 ];
 
 async function loadESPN() {
@@ -1020,7 +1065,7 @@ ${oddsSection}
 - **Líneas y movimiento:** Si una línea se mueve significativamente (1.5+ puntos o 2+ en totales) SIN razón pública clara, puede indicar sharp action (steam move)
 
 ### FÚTBOL — Todos los mercados
-- Ligas: Premier League, LaLiga, Serie A, Bundesliga, Champions League, Copa Libertadores, **Liga BetPlay Colombia**, MLS, Ligue 1
+- Ligas: Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga MX, Champions League, Europa League, Conference League, Copa Libertadores, Copa Sudamericana, **Liga BetPlay Colombia**, MLS
 - **Mercados de valor:** Ambos equipos anotan (BTTS), totales de goles, hándicap asiático, corners, tarjetas
 - **Factores clave:** Motivación (mid-table stalemate = poco interés), fixture, fatiga, clima, árbitros conocidos
 - **Colombia:** Liga BetPlay tiene mercados más ineficientes = más valor para explotar
@@ -1621,6 +1666,91 @@ function startCountdown(elementId, totalSecs) {
       el.textContent = formatCountdown(remaining);
     }
   }, 1000);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PWA — INSTALL PROMPT + SERVICE WORKER
+// ══════════════════════════════════════════════════════════════
+let _pwaPrompt = null;
+
+// Catch the browser's install prompt event
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  // Show install button once logged in
+  const btn = document.getElementById("install-btn");
+  if (btn) btn.style.display = "inline-block";
+});
+
+// Hide install button after successful install
+window.addEventListener("appinstalled", () => {
+  _pwaPrompt = null;
+  const btn = document.getElementById("install-btn");
+  if (btn) btn.style.display = "none";
+  // Show confirmation in chat
+  const msg = { role: "assistant", content: "📱 **¡App instalada!** ProTipster IA ya está en tu pantalla de inicio. Ábrela desde ahí para la experiencia completa sin navegador." };
+  messages.push(msg);
+  appendBubble(msg);
+});
+
+async function pwaInstall() {
+  if (_pwaPrompt) {
+    _pwaPrompt.prompt();
+    const { outcome } = await _pwaPrompt.userChoice;
+    if (outcome === "accepted") _pwaPrompt = null;
+  } else {
+    // Fallback instructions for iOS (Safari doesn't support beforeinstallprompt)
+    const msg = { role: "assistant", content: "📱 **Cómo instalar en tu dispositivo:**\n\n**iPhone/iPad (Safari):**\n1. Toca el botón de compartir ↑ en Safari\n2. Selecciona **\"Añadir a pantalla de inicio\"**\n3. Pulsa **Añadir** — ¡listo!\n\n**Android (Chrome):**\nEl botón 📲 INSTALAR aparece automáticamente en el header cuando Chrome detecta que puedes instalarla. Si no aparece, abre el menú ⋮ → **\"Instalar app\"**\n\n**Escritorio (Chrome/Edge):**\nBusca el ícono de instalación ⊕ en la barra de direcciones." };
+    messages.push(msg);
+    appendBubble(msg);
+  }
+}
+
+// Register inline Service Worker for offline support
+if ("serviceWorker" in navigator) {
+  const swCode = `
+    const CACHE = "protipster-v1";
+    const ASSETS = ["./"];
+
+    self.addEventListener("install", e => {
+      e.waitUntil(
+        caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+      );
+    });
+
+    self.addEventListener("activate", e => {
+      e.waitUntil(
+        caches.keys().then(keys =>
+          Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+        ).then(() => self.clients.claim())
+      );
+    });
+
+    self.addEventListener("fetch", e => {
+      // Network-first for API calls, cache-first for app shell
+      if (e.request.url.includes("api.groq.com") ||
+          e.request.url.includes("api.espn.com") ||
+          e.request.url.includes("googleapis.com")) {
+        return; // Let API calls go through normally
+      }
+      e.respondWith(
+        caches.match(e.request).then(cached => {
+          if (cached) return cached;
+          return fetch(e.request).then(resp => {
+            if (resp.ok) {
+              const clone = resp.clone();
+              caches.open(CACHE).then(c => c.put(e.request, clone));
+            }
+            return resp;
+          }).catch(() => cached);
+        })
+      );
+    });
+  `;
+  const swBlob = new Blob([swCode], { type: "application/javascript" });
+  const swUrl  = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { scope: "./" })
+    .catch(() => {}); // Silent fail — doesn't affect app functionality
 }
 </script>
 </body>
