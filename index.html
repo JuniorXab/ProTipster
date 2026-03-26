@@ -1200,7 +1200,7 @@ async function triggerLiveAnalysis(match) {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
       body: JSON.stringify({
-        model: "deepseek-r1-distill-llama-70b",
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "system", content: buildSystem() }, ...messages.map(m => ({ role: m.role, content: m.content }))],
         max_tokens: 2048,
         temperature: 0.55,
@@ -1262,7 +1262,7 @@ Sé directo. No analices partidos mediocres. Solo los genuinamente buenos.`;
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
       body: JSON.stringify({
-        model: "deepseek-r1-distill-llama-70b",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: buildSystem() },
           { role: "user", content: scanPrompt }
@@ -1384,7 +1384,7 @@ async function sendMessage() {
         "Authorization": "Bearer " + groqKey,
       },
       body: JSON.stringify({
-        model: "deepseek-r1-distill-llama-70b",
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
         max_tokens: 4096,
         temperature: 0.6,
