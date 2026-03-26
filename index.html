@@ -453,7 +453,7 @@
       <textarea id="msg-input" rows="1" placeholder="Partido, liga, mercado, cuotas... o dame info extra (lesiones, alineaciones)" oninput="onInputChange()" onkeydown="onInputKey(event)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
-    <div class="input-footer">GROQ · DEEPSEEK-R1 · ESPN + NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
+    <div class="input-footer">GROQ · LLAMA 3.3 70B / 8B · ESPN + NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
   </div>
 </div>
 
@@ -1201,7 +1201,7 @@ async function triggerLiveAnalysis(match) {
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: buildSystem() }, ...messages.map(m => ({ role: m.role, content: m.content }))],
+        messages: [{ role: "system", content: buildSystem() }, ...messages.slice(-12).map(m => ({ role: m.role, content: m.content }))],
         max_tokens: 2048,
         temperature: 0.55,
       }),
@@ -1375,7 +1375,12 @@ async function sendMessage() {
     updateTypingLabel("Analizando con IA...");
 
     const systemPrompt = buildSystem();
-    const groqMsgs = messages.map(m => ({ role: m.role, content: m.content }));
+    const groqMsgs = messages.slice(-12).map(m => ({ role: m.role, content: m.content }));
+
+    // Smart model routing: simple messages use fast 8b, analysis uses 70b
+    const isDeepQuery = /tip|analiz|parti|stake|apostar|apuesta|liga|nba|futbol|fútbol|mercado|cuota|pick|pronostic|scan|valor|edge|steam|live|vivo|lesion|jugador|premier|laliga|betplay|champions|serie|bundesliga/i.test(userText);
+    const chosenModel = isDeepQuery ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
+    const chosenTokens = isDeepQuery ? 4096 : 1024;
 
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -1384,9 +1389,9 @@ async function sendMessage() {
         "Authorization": "Bearer " + groqKey,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: chosenModel,
         messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
-        max_tokens: 4096,
+        max_tokens: chosenTokens,
         temperature: 0.6,
       }),
     });
@@ -1394,10 +1399,24 @@ async function sendMessage() {
     removeTyping();
 
     if (!resp.ok) {
+      const retryAfter = resp.headers.get("retry-after") || resp.headers.get("x-ratelimit-reset-tokens") || "";
       const e = await resp.json().catch(() => ({}));
       const code = e?.error?.code || "";
       if (resp.status === 401 || code === "invalid_api_key") throw "KEY_INVALID";
-      if (resp.status === 429) throw "RATE_LIMIT";
+      if (resp.status === 429) {
+        // Parse retry-after seconds
+        let waitSecs = 60;
+        if (retryAfter && /^\d+$/.test(retryAfter.trim())) {
+          waitSecs = parseInt(retryAfter.trim());
+        } else {
+          // Try to parse from error message e.g. "Please try again in 45.2s"
+          const mSec = (e?.error?.message || "").match(/try again in ([\d.]+)s/i);
+          const mMin = (e?.error?.message || "").match(/try again in ([\d.]+)m/i);
+          if (mSec) waitSecs = Math.ceil(parseFloat(mSec[1]));
+          else if (mMin) waitSecs = Math.ceil(parseFloat(mMin[1]) * 60);
+        }
+        throw { type: "RATE_LIMIT", waitSecs };
+      }
       throw e?.error?.message || ("HTTP " + resp.status);
     }
 
@@ -1412,10 +1431,17 @@ async function sendMessage() {
     let content;
     if (err === "KEY_INVALID") {
       content = "🔑 **API Key inválida.** Pulsa el botón 🔑 en el header y verifica tu Groq key desde console.groq.com.";
-    } else if (err === "RATE_LIMIT") {
-      content = "⏳ **Límite de Groq alcanzado.** El plan gratuito tiene ~14.400 requests/día. Espera unos minutos e intenta de nuevo.";
+    } else if (err && err.type === "RATE_LIMIT") {
+      const secs = err.waitSecs || 60;
+      // Build a message bubble with live countdown
+      const countdownId = "cd_" + Date.now();
+      content = `⏳ **Límite de Groq alcanzado.**\n\nEl modelo gratuito tiene un límite de tokens por minuto. Tiempo restante: <span id="${countdownId}" style="color:#f59e0b;font-weight:700;font-family:monospace">${formatCountdown(secs)}</span>\n\n💡 *Tip:* preguntas simples usan el modelo rápido (8b) que consume menos tokens.`;
+      // Start countdown after bubble is added
+      setTimeout(() => startCountdown(countdownId, secs), 50);
     } else if (typeof err === "string" && err.toLowerCase().includes("fetch")) {
       content = "🌐 **Error de conexión.** Verifica tu internet e intenta de nuevo.";
+    } else if (typeof err === "string" && err.toLowerCase().includes("decommissioned")) {
+      content = "⚠️ **Modelo deprecado.** Esto no debería ocurrir — recarga la página.";
     } else {
       content = "⚠️ **Error:** " + (err || "Problema desconocido") + ". Intenta de nuevo.";
     }
@@ -1567,6 +1593,34 @@ function sendQuick(btn) {
   document.getElementById("msg-input").value = btn.textContent.replace(/^[^\s]+\s/, "");
   onInputChange();
   sendMessage();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RATE LIMIT COUNTDOWN
+// ══════════════════════════════════════════════════════════════
+function formatCountdown(secs) {
+  if (secs <= 0) return "¡Listo! Puedes intentar de nuevo.";
+  if (secs >= 60) {
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return `${m}m ${s.toString().padStart(2,"0")}s`;
+  }
+  return `${secs}s`;
+}
+
+function startCountdown(elementId, totalSecs) {
+  let remaining = totalSecs;
+  const interval = setInterval(() => {
+    remaining--;
+    const el = document.getElementById(elementId);
+    if (!el) { clearInterval(interval); return; }
+    if (remaining <= 0) {
+      el.textContent = "¡Listo! Puedes intentar de nuevo ✅";
+      el.style.color = "#22c55e";
+      clearInterval(interval);
+    } else {
+      el.textContent = formatCountdown(remaining);
+    }
+  }, 1000);
 }
 </script>
 </body>
