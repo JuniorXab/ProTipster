@@ -493,7 +493,7 @@
       <textarea id="msg-input" rows="1" placeholder="Partido, liga, mercado, cuotas... o dame info extra (lesiones, alineaciones)" oninput="onInputChange()" onkeydown="onInputKey(event)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
-    <div class="input-footer">GROQ · LLAMA 3.3 70B / 8B · ESPN + NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
+    <div class="input-footer">GROQ · LLAMA 3.3 70B · ESPN HOY · NBA + INJURIES · ODDS REALES · HORA COLOMBIA</div>
   </div>
 </div>
 
@@ -729,34 +729,45 @@ async function loadESPN() {
   const colNow = getColombiaTime();
   const colStr = formatColDateFull(colNow);
 
+  // Build today's date string in Colombia time (YYYYMMDD for ESPN param)
+  const yy  = colNow.getFullYear();
+  const mm  = String(colNow.getMonth() + 1).padStart(2, '0');
+  const dd  = String(colNow.getDate()).padStart(2, '0');
+  const todayParam = `${yy}${mm}${dd}`;  // ESPN uses YYYYMMDD
+  const todayLabel = `${dd}/${mm}/${yy}`; // Display format
+
   await Promise.allSettled(ESPN_ENDPOINTS.map(async (ep) => {
     try {
-      const r = await fetch(ep.url, { signal: AbortSignal.timeout(6000) });
+      // Force today's date on every ESPN request — prevents yesterday/tomorrow bleed
+      const urlWithDate = ep.url + `?dates=${todayParam}&limit=20`;
+      const r = await fetch(urlWithDate, { signal: AbortSignal.timeout(6000) });
       if (!r.ok) return;
       const d = await r.json();
       const events = d?.events || [];
       if (!events.length) return;
 
       const lines = events.map(ev => {
-        const comp = ev.competitions?.[0];
-        const comps = comp?.competitors || [];
-        const home = comps.find(c => c.homeAway === "home") || comps[0];
-        const away = comps.find(c => c.homeAway === "away") || comps[1];
+        const comp   = ev.competitions?.[0];
+        const comps  = comp?.competitors || [];
+        const home   = comps.find(c => c.homeAway === "home") || comps[0];
+        const away   = comps.find(c => c.homeAway === "away") || comps[1];
         const status = comp?.status?.type?.description || "";
         const detail = comp?.status?.displayClock || "";
         const period = comp?.status?.period || "";
-        const rawDate = ev.date ? new Date(ev.date) : null;
-        const utcMs = rawDate ? rawDate.getTime() : 0;
-        const colMs = utcMs - 5 * 3600000;
-        const colDate = rawDate ? new Date(colMs) : null;
-        const colTimeStr = colDate ? `${String(colDate.getHours()).padStart(2,'0')}:${String(colDate.getMinutes()).padStart(2,'0')} COL` : "";
 
-        const homeName = home?.team?.displayName || "?";
-        const awayName = away?.team?.displayName || "?";
+        // Convert UTC event time → Colombia (UTC-5)
+        const rawDate  = ev.date ? new Date(ev.date) : null;
+        const colDate  = rawDate ? new Date(rawDate.getTime() - 5 * 3600000) : null;
+        const colTimeStr = colDate
+          ? `${String(colDate.getHours()).padStart(2,'0')}:${String(colDate.getMinutes()).padStart(2,'0')} COL ${dd}/${mm}`
+          : "";
+
+        const homeName  = home?.team?.displayName || "?";
+        const awayName  = away?.team?.displayName || "?";
         const homeScore = home?.score || "-";
         const awayScore = away?.score || "-";
-        const homeRec = home?.records?.[0]?.summary || "";
-        const awayRec = away?.records?.[0]?.summary || "";
+        const homeRec   = home?.records?.[0]?.summary || "";
+        const awayRec   = away?.records?.[0]?.summary || "";
 
         // Detect live
         const isLive = status.toLowerCase().includes("progress") ||
@@ -765,28 +776,22 @@ async function loadESPN() {
                        status.toLowerCase().includes("in progress");
 
         if (isLive) {
-          liveGames.push({
-            league: ep.label,
-            sport: ep.sport,
-            home: homeName,
-            away: awayName,
-            homeScore, awayScore,
-            detail, period,
-          });
+          liveGames.push({ league: ep.label, sport: ep.sport, home: homeName, away: awayName, homeScore, awayScore, detail, period });
         }
 
         const liveTag = isLive
-          ? ` [${awayScore}-${homeScore}] 🔴EN VIVO${detail ? ` (${detail}${period ? ` P${period}` : ''})` : ""}`
+          ? ` [${awayScore}-${homeScore}]🔴VIVO${detail ? `(${detail}${period ? `P${period}` : ''})` : ""}`
           : "";
 
-        return `  • ${awayName}${awayRec ? ` (${awayRec})` : ""} vs ${homeName}${homeRec ? ` (${homeRec})` : ""}${liveTag} | ${status}${colTimeStr ? ` | ${colTimeStr}` : ""}`;
+        // Compact single line per game — reduces tokens significantly
+        return `  • ${awayName}${awayRec ? `(${awayRec})` : ""} vs ${homeName}${homeRec ? `(${homeRec})` : ""}${liveTag}|${status}|${colTimeStr}`;
       });
 
-      parts.push(`${ep.sport} **${ep.label}** (${lines.length} partidos):\n${lines.join("\n")}`);
+      parts.push(`${ep.sport}**${ep.label}** — ${todayLabel} (${lines.length} partidos):\n${lines.join("\n")}`);
     } catch {}
   }));
 
-  sportsCtx = `📅 Fecha/Hora Colombia: ${colStr}\n\n` + parts.join("\n\n");
+  sportsCtx = `📅 HOY Colombia: ${colStr}\n\n` + parts.join("\n\n");
   return parts.length > 0;
 }
 
@@ -1022,8 +1027,9 @@ Fecha y hora exacta ahora mismo: **${colStr}**
 IMPORTANTE: Usa SIEMPRE la hora Colombia. Cuando menciones horarios de partidos, convierte a COL (UTC-5).
 Hora del día: ${colHour < 12 ? 'Mañana' : colHour < 17 ? 'Tarde' : 'Noche'} (${colHour}h COL)`;
 
-  const espnSection = sportsCtx ? `## 📡 DATOS EN TIEMPO REAL (ESPN)
-${sportsCtx}` : "";
+  // Cap sports context to ~2000 chars to avoid TPM overflow
+  const espnTrimmed = sportsCtx ? sportsCtx.slice(0, 2200) + (sportsCtx.length > 2200 ? "\n...(más partidos disponibles)" : "") : "";
+  const espnSection = espnTrimmed ? `## 📡 PARTIDOS HOY (ESPN — hora Colombia)\n${espnTrimmed}` : "";
 
   const nbaSection = nbaLineups ? `## 🏀 NBA HOY (balldontlie API)
 ${nbaLineups}` : "";
@@ -1312,7 +1318,7 @@ Sé directo. No analices partidos mediocres. Solo los genuinamente buenos.`;
           { role: "system", content: buildSystem() },
           { role: "user", content: scanPrompt }
         ],
-        max_tokens: 3000,
+        max_tokens: 2048,
         temperature: 0.5,
       }),
     });
@@ -1420,12 +1426,9 @@ async function sendMessage() {
     updateTypingLabel("Analizando con IA...");
 
     const systemPrompt = buildSystem();
-    const groqMsgs = messages.slice(-12).map(m => ({ role: m.role, content: m.content }));
-
-    // Smart model routing: simple messages use fast 8b, analysis uses 70b
-    const isDeepQuery = /tip|analiz|parti|stake|apostar|apuesta|liga|nba|futbol|fútbol|mercado|cuota|pick|pronostic|scan|valor|edge|steam|live|vivo|lesion|jugador|premier|laliga|betplay|champions|serie|bundesliga/i.test(userText);
-    const chosenModel = isDeepQuery ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
-    const chosenTokens = isDeepQuery ? 4096 : 1024;
+    // Always use 70b — 8b has a context window too small for our sports data
+    // Trim to last 8 messages to keep token count under control
+    const groqMsgs = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
 
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -1434,9 +1437,9 @@ async function sendMessage() {
         "Authorization": "Bearer " + groqKey,
       },
       body: JSON.stringify({
-        model: chosenModel,
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "system", content: systemPrompt }, ...groqMsgs],
-        max_tokens: chosenTokens,
+        max_tokens: 2048,
         temperature: 0.6,
       }),
     });
