@@ -1195,12 +1195,8 @@ async function loadNBAAdvanced() {
     );
 
     nbaAdvanced = lines.length
-      ? `🏀 **NBA ADVANCED STATS ${season} (stats.nba.com)** — ordenado por Net Rating:
-` + lines.join("
-") +
-        "
-
-USO: Net Rating = diferencia ORTG-DRTG (mejor equipo tiene mayor). Pace = ritmo (alto = más posesiones = más puntos totales). eFG% = eficiencia real de tiro."
+      ? "🏀 **NBA ADVANCED STATS " + season + " (stats.nba.com)** — ordenado por Net Rating:\n" + lines.join("\n") +
+        "\n\nUSO: Net Rating = diferencia ORTG-DRTG (mejor equipo tiene mayor). Pace = ritmo (alto = más posesiones = más puntos totales). eFG% = eficiencia real de tiro."
       : "";
   } catch { nbaAdvanced = ""; }
 }
@@ -1277,17 +1273,13 @@ async function loadNBAPlayerStats() {
           const tName = game
             ? (game.home_team?.id === tid ? game.home_team.full_name : game.visitor_team.full_name)
             : `Team ${tid}`;
-          teamStats.push(`  📊 ${tName}:
-${statLines.join("
-")}`);
+          teamStats.push("  📊 " + tName + ":\n" + statLines.join("\n"));
         }
       } catch {}
     }
 
     nbaPlayerStats = teamStats.length
-      ? `🏀 **NBA PLAYER SEASON AVERAGES ${currentSeason}-${currentSeason+1} (BallDontLie)**:
-` + teamStats.join("
-")
+      ? "🏀 **NBA PLAYER SEASON AVERAGES " + currentSeason + "-" + (currentSeason+1) + " (BallDontLie)**:\n" + teamStats.join("\n")
       : "";
   } catch { nbaPlayerStats = ""; }
 }
