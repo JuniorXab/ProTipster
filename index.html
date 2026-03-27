@@ -668,7 +668,9 @@ let apiFootballKey  = "";
 let apiFootballCtx  = "";
 let tomorrowCtx     = "";   // ESPN fixtures next 2 days
 let tsdbCtx         = "";   // TheSportsDB enrichment for searched teams
-let nbaLineups  = "";
+let nbaLineups     = "";
+let nbaAdvanced    = "";   // NBA Stats API: team Net Rating, Pace, ORTG/DRTG
+let nbaPlayerStats = "";   // BallDontLie: top player averages for today's teams
 let liveGames   = [];
 let isLoading   = false;
 let authTab     = "login";
@@ -813,7 +815,7 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; geminiKey = ""; openrouterKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
+  currentUser = null; groqKey = ""; geminiKey = ""; openrouterKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; nbaAdvanced = ""; nbaPlayerStats = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
   if (clockTimer) clearInterval(clockTimer);
   stopAutoRefresh();
   stopLiveTracking();
@@ -1136,6 +1138,160 @@ async function loadNBALineups() {
   }
 }
 
+// ── NBA Advanced Stats (stats.nba.com) ────────────────────
+// Fetches team standings with Net Rating, Pace, ORTG, DRTG — no key needed
+async function loadNBAAdvanced() {
+  try {
+    // NBA Stats API — LeagueDashTeamStats
+    const season = (() => {
+      const now = getColombiaTime();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1; // 1-12
+      // NBA season starts in October; if before Oct, use previous season
+      const startYear = m >= 10 ? y : y - 1;
+      return `${startYear}-${String(startYear + 1).slice(2)}`;
+    })();
+
+    const url = `https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=${season}&SeasonSegment=&SeasonType=Regular+Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=&Weight=`;
+
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer":    "https://www.nba.com/",
+        "Origin":     "https://www.nba.com",
+        "x-nba-stats-origin": "stats",
+        "x-nba-stats-token":  "true",
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (!r.ok) { nbaAdvanced = ""; return; }
+    const d = await r.json();
+    const rs = d?.resultSets?.[0];
+    if (!rs) { nbaAdvanced = ""; return; }
+
+    const headers = rs.headers || [];
+    const rows    = rs.rowSet  || [];
+    const idx = (name) => headers.indexOf(name);
+
+    // Extract key metrics for each team
+    const teams = rows.map(row => ({
+      name:    row[idx("TEAM_NAME")]    || "?",
+      w:       row[idx("W")]            ?? "-",
+      l:       row[idx("L")]            ?? "-",
+      netRtg:  row[idx("NET_RATING")]   ?? null,
+      ortg:    row[idx("OFF_RATING")]   ?? null,
+      drtg:    row[idx("DEF_RATING")]   ?? null,
+      pace:    row[idx("PACE")]         ?? null,
+      efg:     row[idx("EFG_PCT")]      ?? null,
+      ts:      row[idx("TS_PCT")]       ?? null,
+    })).filter(t => t.name !== "?");
+
+    // Sort by NetRtg descending
+    teams.sort((a, b) => (b.netRtg || -99) - (a.netRtg || -99));
+
+    const lines = teams.map((t, i) =>
+      `  ${String(i+1).padStart(2)}. ${t.name.padEnd(26)} | W-L: ${t.w}-${t.l} | NetRtg: ${t.netRtg !== null ? (t.netRtg > 0 ? "+" : "") + t.netRtg.toFixed(1) : "N/A"} | ORTG: ${t.ortg?.toFixed(1) || "N/A"} | DRTG: ${t.drtg?.toFixed(1) || "N/A"} | Pace: ${t.pace?.toFixed(1) || "N/A"} | eFG%: ${t.efg !== null ? (t.efg * 100).toFixed(1) + "%" : "N/A"}`
+    );
+
+    nbaAdvanced = lines.length
+      ? `🏀 **NBA ADVANCED STATS ${season} (stats.nba.com)** — ordenado por Net Rating:
+` + lines.join("
+") +
+        "
+
+USO: Net Rating = diferencia ORTG-DRTG (mejor equipo tiene mayor). Pace = ritmo (alto = más posesiones = más puntos totales). eFG% = eficiencia real de tiro."
+      : "";
+  } catch { nbaAdvanced = ""; }
+}
+
+// ── BallDontLie: top player season averages ────────────────
+// Fetches season averages for star players of today's NBA teams
+async function loadNBAPlayerStats() {
+  try {
+    // Get today's games first to know which teams play
+    const colNow = getColombiaTime();
+    const todayStr = `${colNow.getFullYear()}-${String(colNow.getMonth()+1).padStart(2,"0")}-${String(colNow.getDate()).padStart(2,"0")}`;
+
+    const gamesR = await fetch(
+      `https://api.balldontlie.io/v1/games?dates[]=${todayStr}&per_page=20`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!gamesR.ok) { nbaPlayerStats = ""; return; }
+    const gamesD = await gamesR.json();
+    const games  = gamesD?.data || [];
+    if (!games.length) { nbaPlayerStats = ""; return; }
+
+    // Collect team IDs playing today
+    const teamIds = new Set();
+    games.forEach(g => {
+      if (g.home_team?.id)    teamIds.add(g.home_team.id);
+      if (g.visitor_team?.id) teamIds.add(g.visitor_team.id);
+    });
+
+    // Get season averages — BallDontLie v1 season_averages endpoint
+    // We search top players per team (season 2024 = current)
+    const currentSeason = (() => {
+      const now = getColombiaTime();
+      return (now.getMonth() + 1) >= 10 ? now.getFullYear() : now.getFullYear() - 1;
+    })();
+
+    // Fetch player stats for each team (use players endpoint filtered by team)
+    const teamStats = [];
+    for (const tid of Array.from(teamIds).slice(0, 10)) {
+      try {
+        const pr = await fetch(
+          `https://api.balldontlie.io/v1/players?team_ids[]=${tid}&per_page=15`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        if (!pr.ok) continue;
+        const pd = await pr.json();
+        const players = pd?.data || [];
+        if (!players.length) continue;
+
+        // Get season averages for these players
+        const playerIds = players.map(p => p.id).slice(0, 8);
+        const idParams  = playerIds.map(id => `player_ids[]=${id}`).join("&");
+        const avgR = await fetch(
+          `https://api.balldontlie.io/v1/season_averages?season=${currentSeason}&${idParams}`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        if (!avgR.ok) continue;
+        const avgD = await avgR.json();
+        const avgs = avgD?.data || [];
+
+        // Match avgs with player names
+        const statLines = avgs
+          .filter(a => a.pts >= 10) // only meaningful contributors
+          .sort((a, b) => b.pts - a.pts)
+          .slice(0, 4)
+          .map(a => {
+            const player = players.find(p => p.id === a.player_id);
+            const name   = player ? `${player.first_name} ${player.last_name}` : `ID ${a.player_id}`;
+            return `    ${name}: ${a.pts?.toFixed(1)}pts ${a.reb?.toFixed(1)}reb ${a.ast?.toFixed(1)}ast | FG%: ${a.fg_pct !== null ? (a.fg_pct*100).toFixed(1)+"%" : "N/A"} | 3P%: ${a.fg3_pct !== null ? (a.fg3_pct*100).toFixed(1)+"%" : "N/A"} | ${a.games_played}G`;
+          });
+
+        if (statLines.length) {
+          // Find team name
+          const game  = games.find(g => g.home_team?.id === tid || g.visitor_team?.id === tid);
+          const tName = game
+            ? (game.home_team?.id === tid ? game.home_team.full_name : game.visitor_team.full_name)
+            : `Team ${tid}`;
+          teamStats.push(`  📊 ${tName}:
+${statLines.join("
+")}`);
+        }
+      } catch {}
+    }
+
+    nbaPlayerStats = teamStats.length
+      ? `🏀 **NBA PLAYER SEASON AVERAGES ${currentSeason}-${currentSeason+1} (BallDontLie)**:
+` + teamStats.join("
+")
+      : "";
+  } catch { nbaPlayerStats = ""; }
+}
+
 // ── NBA Injury Report (ESPN) ────────────────────────────────
 async function loadNBAInjuries() {
   try {
@@ -1396,7 +1552,7 @@ async function refreshData() {
   updateCtxChips("loading");
 
   try {
-    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadTomorrow()];
+    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadNBAAdvanced(), loadNBAPlayerStats(), loadTomorrow()];
     if (oddsKey) loaders.push(loadOdds());
     if (apiFootballKey) loaders.push(loadAPIFootball());
     await Promise.allSettled(loaders);
@@ -1459,6 +1615,8 @@ function updateCtxChips(state) {
     const liveTxt   = liveGames.length ? `🔴 ${liveGames.length} vivo` : "Sin live";
     const trackTxt  = liveTrackingMatch ? `⟳ ${liveTrackingMatch.away.split(' ')[0]} vs ${liveTrackingMatch.home.split(' ')[0]}` : "";
     const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
+    const advTxt    = nbaAdvanced ? "📊 NBA Advanced" : "";
+    const plyrTxt   = nbaPlayerStats ? "🏀 Players" : "";
     const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
     const afTxt     = apiFootballCtx ? "⚽ API-Football" : (apiFootballKey ? "⚽ Cargando..." : "");
     const tmrTxt    = tomorrowCtx ? "📅 +2 días" : "";
@@ -1469,6 +1627,8 @@ function updateCtxChips(state) {
       <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveTxt}</span>
       <span class="ctx-chip ok">🇨🇴 COL</span>
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
+      ${advTxt  ? `<span class="ctx-chip ok">${advTxt}</span>`    : ""}
+      ${plyrTxt ? `<span class="ctx-chip ok">${plyrTxt}</span>`   : ""}
       ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
       ${afTxt   ? `<span class="ctx-chip ok">${afTxt}</span>`     : ""}
       ${tmrTxt  ? `<span class="ctx-chip ok">${tmrTxt}</span>`    : ""}
@@ -1506,8 +1666,11 @@ Hora del día: ${colHour < 12 ? 'Mañana' : colHour < 17 ? 'Tarde' : 'Noche'} ($
     ? `## 📡 PARTIDOS (ESPN — hora Colombia)\n⚠️ FECHA HOY: ${colDateStr}. Los partidos sin fecha explícita de hoy PUEDEN SER DE OTRA FECHA — verifica el campo de fecha/hora antes de analizarlos.\n${espnTrimmed}`
     : "";
 
-  const nbaSection = nbaLineups ? `## 🏀 NBA HOY (balldontlie API)
-${nbaLineups}` : "";
+  const nbaSection = (nbaLineups || nbaAdvanced || nbaPlayerStats) ? [
+    nbaLineups    ? `## 🏀 NBA HOY — PARTIDOS\n${nbaLineups}` : "",
+    nbaAdvanced   ? nbaAdvanced : "",
+    nbaPlayerStats? nbaPlayerStats : "",
+  ].filter(Boolean).join("\n\n") : "";
 
   const liveSection = liveGames.length ? `## 🔴 PARTIDOS EN VIVO AHORA MISMO
 ${liveGames.map(g => `• ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home} | ${g.league}${g.detail ? ` | ${g.detail}` : ''}`).join("\n")}
@@ -1543,13 +1706,17 @@ ${oddsSection}
 
 ## 🎯 TU ESPECIALIDAD
 
-### NBA — Análisis Avanzado
-- **Estadísticas que importan:** ORTG, DRTG, Net Rating, Pace, eFG%, TS%, AST%, TOV%, OREB%
-- **Situaciones de valor:** Back-to-backs (2do partido = fatiga), road trips largos, schedule tight (3 partidos en 4 noches)
-- **Props de jugadores:** Puntos, rebounds, asistencias, triples — busca matchups favorables
-- **Totales:** Pace de ambos equipos, defensa últimas 10, forma del referee en cuanto a ritmo
-- **ATS (Against The Spread):** Cómo cubre cada equipo como favorito vs underdog
-- **Líneas y movimiento:** Si una línea se mueve significativamente (1.5+ puntos o 2+ en totales) SIN razón pública clara, puede indicar sharp action (steam move)
+### NBA — Análisis Avanzado (datos reales disponibles en contexto)
+- **Net Rating:** diferencia ORTG-DRTG. El equipo con mayor Net Rating es objetivamente mejor. Diferencia > 5 puntos = ventaja significativa.
+- **Pace:** posesiones por 48min. Pace alto de ambos → Over tiene valor. Pace bajo → Under.
+- **ORTG/DRTG:** si un equipo tiene DRTG débil vs el ORTG del rival → ventaja ofensiva explotable en totales/hándicap.
+- **eFG%:** eficiencia real de tiro. eFG% > 55% = equipo elite en anotación.
+- **Player averages:** usa los promedios de jugadores clave para props (puntos, rebotes, asistencias, FG%).
+- **Back-to-backs:** 2do partido = fatiga → considera reducir total ~4-5 pts, equipo más fresco tiene ventaja ATS.
+- **Road trips largos (4+ partidos fuera):** el equipo local tiene ventaja adicional.
+- **Schedule tight (3 en 4 noches):** equipo en 3er partido = rotación = underdog value.
+- **Lesiones:** siempre cruza injury report con las líneas. Star player fuera → línea mal ajustada = value.
+- **Props:** busca mismatches: jugador con alto AST% vs defensa con alto TOV% = asistencias prop valioso.
 
 ### FÚTBOL — Todos los mercados
 - Ligas: Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga MX, Champions League, Europa League, Conference League, Copa Libertadores, Copa Sudamericana, **Liga BetPlay Colombia**, MLS
