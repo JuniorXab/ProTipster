@@ -1271,9 +1271,12 @@ Fecha y hora exacta ahora mismo: **${colStr}**
 IMPORTANTE: Usa SIEMPRE la hora Colombia. Cuando menciones horarios de partidos, convierte a COL (UTC-5).
 Hora del día: ${colHour < 12 ? 'Mañana' : colHour < 17 ? 'Tarde' : 'Noche'} (${colHour}h COL)`;
 
-  // Cap sports context to ~2000 chars to avoid TPM overflow
+  // Cap sports context to ~2200 chars to avoid TPM overflow
   const espnTrimmed = sportsCtx ? sportsCtx.slice(0, 2200) + (sportsCtx.length > 2200 ? "\n...(más partidos disponibles)" : "") : "";
-  const espnSection = espnTrimmed ? `## 📡 PARTIDOS HOY (ESPN — hora Colombia)\n${espnTrimmed}` : "";
+  const colDateStr = `${String(colNow.getDate()).padStart(2,'0')}/${String(colNow.getMonth()+1).padStart(2,'0')}/${colNow.getFullYear()}`;
+  const espnSection = espnTrimmed
+    ? `## 📡 PARTIDOS (ESPN — hora Colombia)\n⚠️ FECHA HOY: ${colDateStr}. Los partidos sin fecha explícita de hoy PUEDEN SER DE OTRA FECHA — verifica el campo de fecha/hora antes de analizarlos.\n${espnTrimmed}`
+    : "";
 
   const nbaSection = nbaLineups ? `## 🏀 NBA HOY (balldontlie API)
 ${nbaLineups}` : "";
@@ -1530,18 +1533,32 @@ async function runScanner(silent = false) {
   // Refresh data before scanning
   await refreshData();
 
-  const scanPrompt = `TAREA DE SCANNER AUTÓNOMO: Analiza TODOS los partidos disponibles en los datos de hoy y busca proactivamente oportunidades de apuesta con Stake 8 o superior.
+  const colNow = getColombiaTime();
+  const dd = String(colNow.getDate()).padStart(2,'0');
+  const mm = String(colNow.getMonth()+1).padStart(2,'0');
+  const yyyy = colNow.getFullYear();
+  const todayCol = `${dd}/${mm}/${yyyy}`;
+  const colHour = colNow.getHours();
 
-Para cada partido que identifiques como Stake 8+:
-1. Da el pick concreto
-2. Explica brevemente el edge (2-3 líneas máximo por pick)
-3. Asigna el stake con formato STAKE: X/10
+  const scanPrompt = `TAREA DE SCANNER AUTÓNOMO — HOY ${todayCol} (hora actual Colombia: ${colHour}:${String(colNow.getMinutes()).padStart(2,'0')} COL)
 
-Si encuentras un STAKE 10, usa el formato completo con CHECKLIST STAKE 10.
+REGLAS ESTRICTAS ANTES DE ANALIZAR:
+1. ⚠️ SOLO analiza partidos cuya fecha sea exactamente HOY ${todayCol} en hora Colombia
+2. ⚠️ IGNORA completamente cualquier partido de otra fecha (mañana, ayer, próxima semana)
+3. ⚠️ Si un partido ya está EN VIVO (marcador en tiempo real), SOLO recomiéndalo si hay valor en mercados live actuales
+4. ⚠️ Para partidos próximos (aún no han comenzado hoy), da el análisis pre-partido normal
 
-Si no hay nada con Stake 8+, di exactamente: "SCANNER: Sin oportunidades premium en este momento." y explica por qué.
+Busca oportunidades Stake 8 o superior SOLO en partidos de HOY:
 
-Sé directo. No analices partidos mediocres. Solo los genuinamente buenos.`;
+Para cada partido válido (HOY + Stake 8+):
+- Pick concreto
+- Edge en 2-3 líneas
+- Fecha y hora COL confirmando que es hoy ${todayCol}
+- STAKE: X/10
+
+Si no hay nada con Stake 8+ para HOY, di: "SCANNER: Sin oportunidades premium HOY ${todayCol}." y explica brevemente.
+
+NO inventes partidos. Si los datos no muestran partidos para hoy, dilo claramente.`;
 
   try {
     const { text: result } = await callAI(buildSystem(), [{ role: "user", content: scanPrompt }], 2000);
@@ -1699,28 +1716,49 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
 
 async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
   try {
-    // Convert messages to Gemini format
-    const geminiContents = [];
+    // Ensure messages alternate user/model properly (Gemini requirement)
+    const filtered = [];
     for (const m of chatMessages) {
-      geminiContents.push({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      });
+      const role = m.role === "assistant" ? "model" : "user";
+      // Skip if same role as last added (avoid consecutive same-role messages)
+      if (filtered.length > 0 && filtered[filtered.length - 1].role === role) {
+        // Merge content instead of duplicating
+        filtered[filtered.length - 1].parts[0].text += "\n" + m.content;
+      } else {
+        filtered.push({ role, parts: [{ text: m.content }] });
+      }
     }
-    // Gemini uses systemInstruction separately
+    // Gemini must start with "user" and end with "user"
+    if (filtered.length === 0 || filtered[0].role !== "user") {
+      filtered.unshift({ role: "user", parts: [{ text: "Analiza la situación." }] });
+    }
+    if (filtered[filtered.length - 1].role !== "user") {
+      filtered.push({ role: "user", parts: [{ text: "Continúa." }] });
+    }
+
     const body = {
       system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: geminiContents.length > 0 ? geminiContents : [{ role: "user", parts: [{ text: "Hola" }] }],
+      contents: filtered,
       generationConfig: { maxOutputTokens: maxTokens, temperature: 0.65 }
     };
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) }
-    );
-    if (!resp.ok) return null;
-    const d = await resp.json();
-    return d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    // Try gemini-2.0-flash first, fallback to gemini-1.5-flash
+    for (const model of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) }
+      );
+      if (resp.ok) {
+        const d = await resp.json();
+        const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        if (text) return text;
+      } else if (resp.status === 429) {
+        // Gemini also rate limited — return null to trigger countdown
+        return null;
+      }
+      // Other error → try next model
+    }
+    return null;
   } catch { return null; }
 }
 
