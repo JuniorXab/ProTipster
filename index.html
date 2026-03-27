@@ -816,7 +816,7 @@ function saveKey() {
 // ══════════════════════════════════════════════════════════════
 //  CHAT
 // ══════════════════════════════════════════════════════════════
-const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster** — ahora con motor **DeepSeek-R1** (razonamiento profundo) ⚡\n\n🇨🇴 Trabajo en **hora Colombia (UTC-5)**\n\n📡 Cargo en tiempo real:\n- Marcadores y partidos **en vivo** (NBA + fútbol)\n- **Injury report NBA** — jugadores fuera/dudosos\n- **Cuotas reales** (Bet365 y más) si tienes Odds API key\n- Detección de **Steam Moves** y **Value Bets** con % de edge\n- Scanner autónomo de oportunidades **Stake 8+**\n\nDame un partido, liga o mercado y entrego análisis con edge calculado. ¿Arrancamos?" };
+const WELCOME = { role: "assistant", content: "¡Listo! Soy **ProTipster IA** ⚡\n\n🇨🇴 Trabajo en **hora Colombia (UTC-5)**\n\n📡 Cargo en tiempo real:\n- Marcadores y partidos **en vivo** (NBA + fútbol)\n- **Injury report NBA** — jugadores fuera/dudosos\n- **Cuotas reales** (Bet365 y más) si tienes Odds API key\n- Detección de **Steam Moves** y **Value Bets** con % de edge\n- Scanner autónomo de oportunidades **Stake 8+**\n\nDame un partido, liga o mercado y entrego análisis con edge calculado. ¿Arrancamos?" };
 
 function openChat() {
   showScreen("chat");
@@ -826,7 +826,36 @@ function openChat() {
   refreshData();
   startAutoRefresh();
   startAutoScanner();
+  // Test Gemini key silently on load
+  if (geminiKey) setTimeout(testGeminiKey, 3000);
   setTimeout(() => document.getElementById("msg-input").focus(), 200);
+}
+
+async function testGeminiKey() {
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Di solo: OK" }] }], generationConfig: { maxOutputTokens: 5 } }),
+        signal: AbortSignal.timeout(10000) }
+    );
+    const chip = document.getElementById("gemini-chip");
+    if (resp.ok) {
+      if (chip) { chip.textContent = "🤖 Gemini ✓"; chip.className = "ctx-chip ok"; }
+    } else if (resp.status === 400) {
+      // Bad request but key is valid
+      if (chip) { chip.textContent = "🤖 Gemini ✓"; chip.className = "ctx-chip ok"; }
+    } else if (resp.status === 403 || resp.status === 401) {
+      if (chip) { chip.textContent = "🤖 Gemini key inválida"; chip.className = "ctx-chip err"; }
+      const msg = { role: "assistant", content: "⚠️ **Gemini key inválida.** Ve a 🔑 Ajustes y verifica que copiaste la key completa desde `aistudio.google.com/apikey`." };
+      messages.push(msg); appendBubble(msg);
+    } else {
+      if (chip) { chip.textContent = "🤖 Gemini listo"; chip.className = "ctx-chip ok"; }
+    }
+  } catch {
+    const chip = document.getElementById("gemini-chip");
+    if (chip) { chip.textContent = "🤖 Gemini listo"; chip.className = "ctx-chip ok"; }
+  }
 }
 
 function clearHistory() {
@@ -1248,6 +1277,7 @@ function updateCtxChips(state) {
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
       ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
       ${afTxt   ? `<span class="ctx-chip ok">${afTxt}</span>`     : ""}
+      ${geminiKey ? `<span class="ctx-chip ok" id="gemini-chip">🤖 Gemini listo</span>` : `<span class="ctx-chip warn" id="gemini-chip">⚠ Sin Gemini</span>`}
       ${trackTxt? `<span class="ctx-chip err">⟳ ${trackTxt}</span>`: ""}
     `;
   } else {
@@ -1666,27 +1696,30 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
       }
 
       if (resp.status === 429) {
-        // Parse wait time from headers/body
+        // Parse wait time
         const retryAfter = resp.headers.get("retry-after") || "";
         const e = await resp.json().catch(() => ({}));
-        let waitSecs = 0; // 0 = try fallback instead of waiting
+        let waitSecs = 0;
         const mSec = (e?.error?.message || "").match(/try again in ([\d.]+)s/i);
         const mMin = (e?.error?.message || "").match(/try again in ([\d.]+)m/i);
         if (retryAfter && /^\d+$/.test(retryAfter.trim())) waitSecs = parseInt(retryAfter.trim());
         else if (mSec) waitSecs = Math.ceil(parseFloat(mSec[1]));
         else if (mMin) waitSecs = Math.ceil(parseFloat(mMin[1]) * 60);
+        // Cap at 5 min — anything longer, let user retry manually
+        waitSecs = Math.min(waitSecs || 60, 300);
 
-        // If Gemini is available → try it silently instead of showing countdown
+        // Try Gemini fallback
         if (geminiKey) {
-          const geminiResult = await callGemini(systemPrompt, chatMessages, maxTokens);
-          if (geminiResult) {
+          const { text: gText, reason: gReason } = await callGemini(systemPrompt, chatMessages, maxTokens);
+          if (gText) {
             activeProvider = "gemini";
             updateProviderBadge("gemini");
-            return { text: geminiResult, provider: "gemini" };
+            return { text: gText, provider: "gemini" };
           }
+          // Gemini failed — throw with reason info
+          throw { type: "RATE_LIMIT", waitSecs, geminiReason: gReason };
         }
-        // No fallback → show countdown
-        throw { type: "RATE_LIMIT", waitSecs: waitSecs || 60 };
+        throw { type: "RATE_LIMIT", waitSecs, geminiReason: "no_key" };
       }
 
       if (resp.status === 401) throw "KEY_INVALID";
@@ -1698,8 +1731,8 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
       if (err === "KEY_INVALID" || (err && err.type === "RATE_LIMIT")) throw err;
       // Network error → try Gemini
       if (geminiKey) {
-        const geminiResult = await callGemini(systemPrompt, chatMessages, maxTokens);
-        if (geminiResult) { activeProvider = "gemini"; return { text: geminiResult, provider: "gemini" }; }
+        const { text: gText } = await callGemini(systemPrompt, chatMessages, maxTokens);
+        if (gText) { activeProvider = "gemini"; return { text: gText, provider: "gemini" }; }
       }
       throw err;
     }
@@ -1707,59 +1740,63 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
 
   // ── Groq key not set → try Gemini directly ──────────────────
   if (geminiKey) {
-    const geminiResult = await callGemini(systemPrompt, chatMessages, maxTokens);
-    if (geminiResult) { activeProvider = "gemini"; return { text: geminiResult, provider: "gemini" }; }
+    const { text: gText } = await callGemini(systemPrompt, chatMessages, maxTokens);
+    if (gText) { activeProvider = "gemini"; return { text: gText, provider: "gemini" }; }
   }
 
   throw "No hay API configurada. Ve a Ajustes (🔑) y agrega al menos una key.";
 }
 
 async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
-  try {
-    // Ensure messages alternate user/model properly (Gemini requirement)
-    const filtered = [];
-    for (const m of chatMessages) {
-      const role = m.role === "assistant" ? "model" : "user";
-      // Skip if same role as last added (avoid consecutive same-role messages)
-      if (filtered.length > 0 && filtered[filtered.length - 1].role === role) {
-        // Merge content instead of duplicating
-        filtered[filtered.length - 1].parts[0].text += "\n" + m.content;
-      } else {
-        filtered.push({ role, parts: [{ text: m.content }] });
+  if (!geminiKey) return { text: null, reason: "no_key" };
+
+  const filtered = [];
+  for (const m of chatMessages) {
+    const role = m.role === "assistant" ? "model" : "user";
+    if (filtered.length > 0 && filtered[filtered.length-1].role === role) {
+      filtered[filtered.length-1].parts[0].text += "\n" + m.content;
+    } else {
+      filtered.push({ role, parts: [{ text: m.content }] });
+    }
+  }
+  if (!filtered.length || filtered[0].role !== "user") {
+    filtered.unshift({ role: "user", parts: [{ text: "Analiza." }] });
+  }
+  if (filtered[filtered.length-1].role !== "user") {
+    filtered.push({ role: "user", parts: [{ text: "Continúa el análisis." }] });
+  }
+
+  for (const model of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
+    for (const useSystemInstr of [true, false]) {
+      try {
+        const body = useSystemInstr
+          ? { system_instruction: { parts: [{ text: systemPrompt }] }, contents: filtered, generationConfig: { maxOutputTokens: maxTokens, temperature: 0.65 } }
+          : { contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n---\n" + (chatMessages[chatMessages.length-1]?.content || "") }] }], generationConfig: { maxOutputTokens: maxTokens, temperature: 0.65 } };
+
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(35000) }
+        );
+
+        if (resp.ok) {
+          const d = await resp.json();
+          const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+          if (text) {
+            const chip = document.getElementById("gemini-chip");
+            if (chip) { chip.textContent = "🤖 Gemini activo"; chip.className = "ctx-chip ok"; }
+            return { text, reason: "ok" };
+          }
+        }
+        if (resp.status === 429) return { text: null, reason: "rate_limited" };
+        if (resp.status === 401 || resp.status === 403) return { text: null, reason: "invalid_key" };
+        if (resp.status === 400 && useSystemInstr) continue;
+        if (!resp.ok) return { text: null, reason: `http_${resp.status}` };
+      } catch (e) {
+        return { text: null, reason: "network" };
       }
     }
-    // Gemini must start with "user" and end with "user"
-    if (filtered.length === 0 || filtered[0].role !== "user") {
-      filtered.unshift({ role: "user", parts: [{ text: "Analiza la situación." }] });
-    }
-    if (filtered[filtered.length - 1].role !== "user") {
-      filtered.push({ role: "user", parts: [{ text: "Continúa." }] });
-    }
-
-    const body = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: filtered,
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.65 }
-    };
-
-    // Try gemini-2.0-flash first, fallback to gemini-1.5-flash
-    for (const model of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) }
-      );
-      if (resp.ok) {
-        const d = await resp.json();
-        const text = d?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-        if (text) return text;
-      } else if (resp.status === 429) {
-        // Gemini also rate limited — return null to trigger countdown
-        return null;
-      }
-      // Other error → try next model
-    }
-    return null;
-  } catch { return null; }
+  }
+  return { text: null, reason: "no_text" };
 }
 
 function updateProviderBadge(provider) {
@@ -1819,17 +1856,29 @@ Antes de tu respuesta, piensa brevemente: (1) qué datos son clave aquí, (2) qu
       content = "🔑 **API Key inválida.** Pulsa el botón 🔑 en el header y verifica tu Groq key.";
     } else if (err && err.type === "RATE_LIMIT") {
       const secs = err.waitSecs || 60;
+      const gReason = err.geminiReason || "no_key";
       isRateLimited = true;
       const cid = "cd_" + Date.now();
-      content = "⏳ **Groq y Gemini alcanzaron su límite.**\n" +
+
+      // Build Gemini status message based on reason
+      const geminiMsg = {
+        "no_key":       "💡 Agrega tu **Gemini key** (🔑 → Ajustes) para evitar este límite — gratis en aistudio.google.com/apikey",
+        "invalid_key":  "⚠️ Tu **Gemini key es inválida**. Ve a 🔑 → Ajustes y vuelve a pegarla desde aistudio.google.com/apikey",
+        "rate_limited": "ℹ️ Gemini también alcanzó su límite temporal. Ambos se recuperan en breve.",
+        "network":      "🌐 Error de red al contactar Gemini. Verifica tu conexión.",
+        "no_text":      "⚠️ Gemini respondió vacío. Intenta de nuevo al terminar la cuenta regresiva.",
+      }[gReason] || "⚠️ Gemini no pudo responder. Ve a 🔑 → Ajustes y verifica tu Gemini key.";
+
+      content = "⏳ **Groq alcanzó su límite.**\n" +
         "@@HTML@@<div style='margin:8px 0 4px;display:flex;align-items:center;gap:10px'>" +
           "<span style='font-size:12px;color:#94a3b8;font-family:monospace'>Recuperando en:</span>" +
           "<span id='" + cid + "' style='font-size:20px;font-weight:700;color:#f59e0b;font-family:monospace'>" + formatCountdown(secs) + "</span>" +
         "</div>\n" +
-        "@@HTML@@<div style='height:4px;background:rgba(245,158,11,0.15);border-radius:4px;margin-bottom:10px'>" +
+        "@@HTML@@<div style='height:4px;background:rgba(245,158,11,0.15);border-radius:4px;margin-bottom:8px'>" +
           "<div id='" + cid + "_bar' style='height:100%;width:100%;background:linear-gradient(90deg,#f59e0b,#ff8c00);border-radius:4px;transition:width 1s linear'></div>" +
         "</div>\n" +
-        "💡 Agrega tu **Gemini key** (🔑 → Ajustes) para evitar este límite — es gratis y tiene 1M tokens/día.";
+        geminiMsg;
+
       setTimeout(() => {
         startCountdown(cid, secs);
         const inp = document.getElementById("msg-input");
