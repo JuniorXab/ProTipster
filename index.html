@@ -637,6 +637,8 @@ let messages    = [];
 let sportsCtx       = "";
 let apiFootballKey  = "";
 let apiFootballCtx  = "";
+let tomorrowCtx     = "";   // ESPN fixtures next 2 days
+let tsdbCtx         = "";   // TheSportsDB enrichment for searched teams
 let nbaLineups  = "";
 let liveGames   = [];
 let isLoading   = false;
@@ -764,7 +766,7 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; geminiKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = "";
+  currentUser = null; groqKey = ""; geminiKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
   if (clockTimer) clearInterval(clockTimer);
   stopAutoRefresh();
   stopLiveTracking();
@@ -1198,13 +1200,145 @@ async function loadOdds() {
   } catch { oddsCtx = ""; }
 }
 
+// ── TheSportsDB — free, no key needed ────────────────────────
+// Searches for team info, last 5 results, next events
+async function searchTheSportsDB(teamName) {
+  if (!teamName || teamName.length < 3) return null;
+  try {
+    // Search team
+    const r = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    const team = d?.teams?.[0];
+    if (!team) return null;
+
+    const tid = team.idTeam;
+    const info = {
+      name:     team.strTeam,
+      league:   team.strLeague,
+      country:  team.strCountry,
+      stadium:  team.strStadium,
+      capacity: team.intStadiumCapacity,
+    };
+
+    // Last 5 results + next 5 events in parallel
+    const [resR, nextR] = await Promise.allSettled([
+      fetch(`https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=${tid}`, { signal: AbortSignal.timeout(5000) }),
+      fetch(`https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=${tid}`, { signal: AbortSignal.timeout(5000) }),
+    ]);
+
+    let lastResults = [];
+    if (resR.status === "fulfilled" && resR.value.ok) {
+      const rd = await resR.value.json();
+      lastResults = (rd?.results || []).slice(-5).map(e =>
+        `  ${e.dateEvent} | ${e.strHomeTeam} ${e.intHomeScore}-${e.intAwayScore} ${e.strAwayTeam}`
+      );
+    }
+
+    let nextEvents = [];
+    if (nextR.status === "fulfilled" && nextR.value.ok) {
+      const nd = await nextR.value.json();
+      nextEvents = (nd?.events || []).slice(0, 5).map(e =>
+        `  ${e.dateEvent} ${e.strTime||""} | ${e.strHomeTeam} vs ${e.strAwayTeam} (${e.strLeague})`
+      );
+    }
+
+    return { info, lastResults, nextEvents };
+  } catch { return null; }
+}
+
+// Enriches context with TSDB data for teams mentioned in user message
+async function enrichWithTSDB(userText) {
+  // Extract potential team names (words with capital letters, min 4 chars)
+  const words = userText.split(/\s+/);
+  const candidates = [];
+  for (let i = 0; i < words.length; i++) {
+    // Try single words and pairs
+    const w = words[i].replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, "").trim();
+    if (w.length >= 4 && /[A-ZÁÉÍÓÚÑ]/.test(w[0])) candidates.push(w);
+    if (i < words.length - 1) {
+      const pair = (w + " " + words[i+1].replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g, "")).trim();
+      if (pair.length >= 6) candidates.push(pair);
+    }
+  }
+
+  // Search top 2 candidates (to save API calls)
+  const results = [];
+  for (const c of candidates.slice(0, 2)) {
+    const data = await searchTheSportsDB(c);
+    if (data) {
+      let block = `📋 **${data.info.name}** (${data.info.league}, ${data.info.country})`;
+      if (data.info.stadium) block += ` | Estadio: ${data.info.stadium}${data.info.capacity ? " ("+data.info.capacity+" cap.)" : ""}`;
+      if (data.lastResults.length) block += `\n  Últimos resultados:\n${data.lastResults.join("\n")}`;
+      if (data.nextEvents.length)  block += `\n  Próximos partidos:\n${data.nextEvents.join("\n")}`;
+      results.push(block);
+    }
+  }
+  tsdbCtx = results.length
+    ? "## 📋 THESPORTSDB — INFO EQUIPOS + H2H RECIENTE\n" + results.join("\n\n")
+    : "";
+}
+
+// ── ESPN Tomorrow/Day-after fixtures ─────────────────────────
+async function loadTomorrow() {
+  const colNow = getColombiaTime();
+  const parts  = [];
+
+  for (let dayOffset = 1; dayOffset <= 2; dayOffset++) {
+    const nextDay  = new Date(colNow.getTime() + dayOffset * 86400000);
+    const yyyy = nextDay.getFullYear();
+    const mm   = String(nextDay.getMonth() + 1).padStart(2, "0");
+    const dd   = String(nextDay.getDate()).padStart(2, "0");
+    const label = dayOffset === 1 ? "MAÑANA" : "PASADO MAÑANA";
+
+    const eps = [
+      { l: "NBA",          u: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Premier",      u: `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "LaLiga",       u: `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Champions",    u: `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Europa Lg",    u: `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Serie A",      u: `https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Bundesliga",   u: `https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Liga BetPlay", u: `https://site.api.espn.com/apis/site/v2/sports/soccer/col.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "Copa Lib.",    u: `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${yyyy}${mm}${dd}` },
+      { l: "MLS",          u: `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${yyyy}${mm}${dd}` },
+    ];
+
+    const lines = [];
+    await Promise.allSettled(eps.map(async ep => {
+      try {
+        const r = await fetch(ep.u, { signal: AbortSignal.timeout(5000) });
+        if (!r.ok) return;
+        const d = await r.json();
+        (d?.events || []).forEach(ev => {
+          const comp  = ev.competitions?.[0];
+          const comps = comp?.competitors || [];
+          const home  = (comps.find(c => c.homeAway === "home") || comps[0])?.team?.displayName || "?";
+          const away  = (comps.find(c => c.homeAway === "away") || comps[1])?.team?.displayName || "?";
+          // Convert to COL time
+          const evDate = ev.date ? new Date(ev.date) : null;
+          const colD   = evDate ? new Date(evDate.getTime() + evDate.getTimezoneOffset()*60000 - 5*3600000) : null;
+          const t      = colD ? String(colD.getHours()).padStart(2,"0")+":"+String(colD.getMinutes()).padStart(2,"0")+" COL" : "";
+          lines.push(`  • [${ep.l}] ${away} vs ${home}${t ? " — " + t : ""}`);
+        });
+      } catch {}
+    }));
+
+    if (lines.length) parts.push(`📅 **${label} (${dd}/${mm}/${yyyy}):**\n${lines.join("\n")}`);
+  }
+  tomorrowCtx = parts.join("\n\n");
+}
+
 async function refreshData() {
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   updateCtxChips("loading");
 
   try {
-    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries()];
+    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadTomorrow()];
     if (oddsKey) loaders.push(loadOdds());
     if (apiFootballKey) loaders.push(loadAPIFootball());
     await Promise.allSettled(loaders);
@@ -1269,6 +1403,8 @@ function updateCtxChips(state) {
     const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
     const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
     const afTxt     = apiFootballCtx ? "⚽ API-Football" : (apiFootballKey ? "⚽ Cargando..." : "");
+    const tmrTxt    = tomorrowCtx ? "📅 +2 días" : "";
+    const tsdbTxt   = tsdbCtx ? "📋 TSDB" : "";
     row.innerHTML = `
       <span class="ctx-chip ok">✓ ESPN</span>
       <span class="ctx-chip ok">✓ NBA</span>
@@ -1277,6 +1413,8 @@ function updateCtxChips(state) {
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
       ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
       ${afTxt   ? `<span class="ctx-chip ok">${afTxt}</span>`     : ""}
+      ${tmrTxt  ? `<span class="ctx-chip ok">${tmrTxt}</span>`    : ""}
+      ${tsdbTxt ? `<span class="ctx-chip ok">${tsdbTxt}</span>`   : ""}
       ${geminiKey ? `<span class="ctx-chip ok" id="gemini-chip">🤖 Gemini listo</span>` : `<span class="ctx-chip warn" id="gemini-chip">⚠ Sin Gemini</span>`}
       ${trackTxt? `<span class="ctx-chip err">⟳ ${trackTxt}</span>`: ""}
     `;
@@ -1290,7 +1428,9 @@ function updateCtxChips(state) {
 // ══════════════════════════════════════════════════════════════
 function buildSystem() {
   // API-Football extra leagues context
-  const afSection = apiFootballCtx ? `## ⚽ API-FOOTBALL (Liga B, Eliminatorias, Live global)\n${apiFootballCtx}\n` : "";
+  const afSection      = apiFootballCtx ? `## ⚽ API-FOOTBALL (Liga B, Eliminatorias, Live global)\n${apiFootballCtx}\n` : "";
+  const tomorrowSection = tomorrowCtx ? `## 📅 PARTIDOS PRÓXIMOS (MAÑANA / PASADO MAÑANA)\n⚠️ Estos partidos NO han ocurrido aún — no inventes resultados.\n${tomorrowCtx}` : "";
+  const tsdbSection     = tsdbCtx     ? `${tsdbCtx}` : "";
 
   const colNow = getColombiaTime();
   const colStr = formatColDateFull(colNow);
@@ -1334,6 +1474,10 @@ ${nbaSection}
 ${liveSection}
 
 ${afSection}
+
+${tomorrowSection}
+
+${tsdbSection}
 
 ${injurySection}
 
@@ -1441,11 +1585,15 @@ El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando
 ## REGLAS CRÍTICAS
 
 1. **Responde SIEMPRE en español**
-2. **Nunca inventes estadísticas** — si no tienes el dato, dilo y da el mejor análisis posible con lo que tienes
-3. **Siempre completa la respuesta entera** sin cortar
-4. **Sé directo como tipster real** — no des análisis ambiguos tipo "puede que gane o puede que pierda"
-5. **Identifica el EDGE** — siempre explica POR QUÉ la cuota tiene valor, no solo quién va a ganar
-6. **Hora Colombia siempre** — nunca menciones hora UTC o ET sin convertir a COL`;
+2. **TRANSPARENCIA DE DATOS OBLIGATORIA** — Al inicio de cada análisis indica qué fuentes usaste con este formato:
+   📡 *Fuentes: ESPN ✓ | TheSportsDB ✓ | API-Football ✗ | Odds ✗*
+   Si alguna fuente no tiene datos del partido específico, dilo: "No encontré este partido en ESPN/API-Football."
+3. **NUNCA inventes ni extrapoles** datos de partidos específicos — si no tienes el dato exacto, escribe "[dato no disponible — verificar en casa de apuestas]"
+4. **Para partidos de mañana/futuro**: usa la sección "PARTIDOS PRÓXIMOS" del contexto. Si el partido no aparece ahí, di: "No encontré este partido en mis fuentes. Puede ser amistoso no cubierto o liga menor. Aquí mi análisis basado en conocimiento general de los equipos:" y procede con lo que sabes.
+5. **Siempre completa la respuesta entera** sin cortar
+6. **Sé directo como tipster real** — no des análisis ambiguos
+7. **Identifica el EDGE** — siempre explica POR QUÉ la cuota tiene valor
+8. **Hora Colombia siempre** — nunca menciones hora UTC o ET sin convertir a COL`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1830,6 +1978,11 @@ async function sendMessage() {
 
   try {
     if (!dataLoaded) await refreshData();
+    updateTypingLabel("Buscando datos del partido...");
+
+    // Enrich with TheSportsDB team data based on user message
+    await enrichWithTSDB(userText);
+
     updateTypingLabel("Analizando con IA...");
 
     // Build system with reasoning embedded (no extra API call)
