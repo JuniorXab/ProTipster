@@ -699,25 +699,42 @@ const STORE_PFX = "protipster_v2_";
 // ══════════════════════════════════════════════════════════════
 //  COLOMBIA CLOCK (UTC-5)
 // ══════════════════════════════════════════════════════════════
+// ── Colombia time — always correct via Intl API ──────────────
 function getColombiaTime() {
+  // Use Intl to get a real Date in Bogotá timezone (handles any offset correctly)
   const now = new Date();
-  // Colombia is UTC-5 (no DST)
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const colMs = utcMs - 5 * 3600000;
-  return new Date(colMs);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+  }).formatToParts(now);
+  const p = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+  return new Date(`${p.year}-${p.month}-${p.day}T${p.hour === "24" ? "00" : p.hour}:${p.minute}:${p.second}`);
 }
 
 function formatColTime(d) {
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
   return `🕐 ${hh}:${mm}:${ss} COL`;
 }
 
 function formatColDateFull(d) {
-  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} COL`;
+  const days   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} COL`;
+}
+
+// Convert any UTC Date to Colombia HH:MM COL string
+function toColStr(utcDate) {
+  if (!utcDate) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Bogota",
+      hour: "2-digit", minute: "2-digit", hour12: false
+    }).format(utcDate).replace(",","").trim().replace(/^24:/,"00:") + " COL";
+  } catch { return ""; }
 }
 
 function startClock() {
@@ -1169,15 +1186,15 @@ async function loadOdds() {
       { key: "soccer_mexico_ligamx",        label: "🇲🇽 Liga MX" },
       { key: "soccer_conmebol_libertadores",label: "🏆 Copa Libertadores" },
     ];
-    // Use eu,us regions for broadest bookmaker coverage
-    const regions    = "eu,us";
-    const bookmakers = "bet365,pinnacle,unibet,betfair,williamhill,draftkings,bovada";
-    const markets    = "h2h,totals";
+    // LATAM-first: try co region (Colombia) then eu fallback
+    const regionsLatam = "us,eu";          // 'co' not always available; eu covers bet365
+    const bookmakers   = "bet365,betcris,pinnacle,unibet,betfair,williamhill,bovada";
+    const markets      = "h2h,spreads,totals";
     const parts = [];
 
     await Promise.allSettled(sports.map(async ({ key, label }) => {
       try {
-        const url = `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${oddsKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
+        const url = `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${oddsKey}&regions=${regionsLatam}&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
         if (!r.ok) return;
         const games = await r.json();
@@ -1235,8 +1252,8 @@ async function loadOdds() {
     }));
 
     oddsCtx = parts.length
-      ? `💰 CUOTAS REALES + PROBABILIDADES JUSTAS (The Odds API — bookmakers EU):\n` +
-        `INSTRUCCIÓN: prob% ya tiene margen eliminado = probabilidad real del mercado. Edge = tu estimación - prob%. Solo apuesta si edge ≥5%.\n\n` +
+      ? `💰 CUOTAS REALES LATAM/EU (The Odds API — Bet365, Betcris, Pinnacle):\n` +
+        `INSTRUCCIÓN: prob% = probabilidad justa (margen eliminado). Edge = tu estimación - prob%. EV aproximado = (prob_real × cuota - 1) × 100%. Solo apuesta si EV ≥ 5%.\n\n` +
         parts.join("\n\n")
       : "";
   } catch { oddsCtx = ""; }
@@ -1362,8 +1379,7 @@ async function loadTomorrow() {
           const away  = (comps.find(c => c.homeAway === "away") || comps[1])?.team?.displayName || "?";
           // Convert to COL time
           const evDate = ev.date ? new Date(ev.date) : null;
-          const colD   = evDate ? new Date(evDate.getTime() + evDate.getTimezoneOffset()*60000 - 5*3600000) : null;
-          const t      = colD ? String(colD.getHours()).padStart(2,"0")+":"+String(colD.getMinutes()).padStart(2,"0")+" COL" : "";
+          const t      = evDate ? toColStr(evDate) : "";
           lines.push(`  • [${ep.l}] ${away} vs ${home}${t ? " — " + t : ""}`);
         });
       } catch {}
@@ -1624,18 +1640,59 @@ El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando
 
 ---
 
+## 🧠 CHAIN-OF-THOUGHT OBLIGATORIO (proceso interno antes de responder)
+
+Antes de dar cualquier tip, realiza este proceso mentalmente:
+
+**PASO 1 — DATOS:** ¿Qué tengo? ESPN/API-Football para fixture. TheSportsDB para H2H y forma reciente. Odds API para cuotas reales. Injuries para ausencias.
+**PASO 2 — CONTEXTO:** Lesiones clave ✓/✗ | Back-to-back ✓/✗ | Motivación (playoffs/clasificación/mid-table) | H2H últimos 5 | Forma reciente (últimos 5)
+**PASO 3 — EDGE:** ¿Por qué el mercado está equivocado aquí? Identifica la ineficiencia específica.
+**PASO 4 — EV:** Calcula EV = (prob_real × cuota - 1) × 100%. Solo tips con EV ≥ 5%.
+**PASO 5 — STAKE:** Asigna stake proporcional al EV y convicción.
+
+## 📋 FORMATO OBLIGATORIO DE CADA TIP
+
+📡 *Fuentes usadas: [ESPN ✓/✗] [TheSportsDB ✓/✗] [Odds ✓/✗] [API-Football ✓/✗] | Actualizado: [HH:MM COL]*
+
+🎯 **[PARTIDO COMPLETO]**
+📅 Fecha/Hora: [HH:MM COL — siempre hora Colombia]
+🏆 Competición: [liga]
+📡 Estado: [Próximo / 🔴 EN VIVO]
+
+**ANÁLISIS PROFUNDO:**
+- 🏥 Lesiones/Bajas: [lista específica o "Sin bajas confirmadas"]
+- 📋 Lineup/Rotación: [titulares esperados o info disponible]
+- 📈 Forma reciente: [últimos 5 resultados reales o estimados]
+- ⚔️ H2H reciente: [últimos 3-5 enfrentamientos]
+- 💪 Motivación: [playoff/clasificación/orgullo/irrelevante]
+- ⚡ Ritmo/Momentum: [pace, tendencias, factor local]
+
+**EDGE DETECTADO:**
+[Razón específica por qué el mercado subestima/sobreestima]
+
+**APUESTA:**
+- Mercado: [tipo exacto]
+- Selección: [pick exacto]
+- Cuota: [valor — fuente: Bet365/Betcris/estimada]
+- 📈 **EV aproximado: +X.X%** — [cálculo: prob_real X% × cuota Y - 1]
+- ⚡ **STAKE: X/10** — [BAJO/MEDIO-BAJO/MEDIO-ALTO/PREMIUM/ORO]
+- 💬 Justificación: [razón concreta]
+
+[Si aplica: 🚨 **STEAM MOVE:** movimiento detectado]
+[Si aplica: 📊 **REVERSE LINE MOVEMENT:** público apuesta X pero línea mueve hacia Y]
+
+---
+
 ## REGLAS CRÍTICAS
 
 1. **Responde SIEMPRE en español**
-2. **TRANSPARENCIA DE DATOS OBLIGATORIA** — Al inicio de cada análisis indica qué fuentes usaste con este formato:
-   📡 *Fuentes: ESPN ✓ | TheSportsDB ✓ | API-Football ✗ | Odds ✗*
-   Si alguna fuente no tiene datos del partido específico, dilo: "No encontré este partido en ESPN/API-Football."
-3. **NUNCA inventes ni extrapoles** datos de partidos específicos — si no tienes el dato exacto, escribe "[dato no disponible — verificar en casa de apuestas]"
-4. **Para partidos de mañana/futuro**: usa la sección "PARTIDOS PRÓXIMOS" del contexto. Si el partido no aparece ahí, di: "No encontré este partido en mis fuentes. Puede ser amistoso no cubierto o liga menor. Aquí mi análisis basado en conocimiento general de los equipos:" y procede con lo que sabes.
-5. **Siempre completa la respuesta entera** sin cortar
-6. **Sé directo como tipster real** — no des análisis ambiguos
-7. **Identifica el EDGE** — siempre explica POR QUÉ la cuota tiene valor
-8. **Hora Colombia siempre** — nunca menciones hora UTC o ET sin convertir a COL`;
+2. **FUENTES OBLIGATORIAS** — siempre muestra el bloque 📡 *Fuentes usadas* al inicio. Si no tienes datos de una fuente, di "✗" pero igualmente da el mejor análisis posible.
+3. **NUNCA inventes datos de partido específico** — usa "[no disponible]" para datos que no tienes.
+4. **Partidos futuros** — si no aparecen en "PARTIDOS PRÓXIMOS", di explícitamente que es análisis de conocimiento general y procede.
+5. **EV OBLIGATORIO** — todo tip debe tener 📈 EV aproximado con cálculo.
+6. **Completa siempre la respuesta entera** sin cortar.
+7. **Sé directo** — no des análisis tipo "puede ganar o perder".
+8. **Hora Colombia siempre** — nunca menciones UTC o ET sin convertir a COL.`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1760,7 +1817,7 @@ async function runScanner(silent = false) {
   const todayCol = `${dd}/${mm}/${yyyy}`;
   const colHour = colNow.getHours();
 
-  const scanPrompt = `TAREA DE SCANNER AUTÓNOMO — HOY ${todayCol} (hora actual Colombia: ${colHour}:${String(colNow.getMinutes()).padStart(2,'0')} COL)
+  const scanPrompt = `TAREA DE SCANNER AUTÓNOMO — HOY ${todayCol} (${colHour}:${String(colNow.getMinutes()).padStart(2,'0')} COL)
 
 REGLAS ESTRICTAS ANTES DE ANALIZAR:
 1. ⚠️ SOLO analiza partidos cuya fecha sea exactamente HOY ${todayCol} en hora Colombia
@@ -1770,13 +1827,18 @@ REGLAS ESTRICTAS ANTES DE ANALIZAR:
 
 Busca oportunidades Stake 8 o superior SOLO en partidos de HOY:
 
-Para cada partido válido (HOY + Stake 8+):
+CRITERIOS ESTRICTOS — solo incluye picks que cumplan TODOS:
+1. EV estimado ≥ 7% (calcula: prob_real × cuota - 1)
+2. Stake 8+ (alta convicción)
+3. Partido es HOY o está en vivo AHORA
+
+Para cada pick válido:
 - Pick concreto
 - Edge en 2-3 líneas
 - Fecha y hora COL confirmando que es hoy ${todayCol}
 - STAKE: X/10
 
-Si no hay nada con Stake 8+ para HOY, di: "SCANNER: Sin oportunidades premium HOY ${todayCol}." y explica brevemente.
+Si no hay picks con EV ≥ 7% y Stake 8+, di exactamente: "SCANNER: Sin oportunidades con EV ≥ 7% para HOY ${todayCol}." — no fuerces picks mediocres.
 
 NO inventes partidos. Si los datos no muestran partidos para hoy, dilo claramente.`;
 
@@ -1864,7 +1926,7 @@ function injectScanResult(result) {
 let isRateLimited = false;
 let activeProvider = "groq"; // tracks which provider is currently working
 
-async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
+async function callAI(systemPrompt, chatMessages, maxTokens = 2000) {
   // ── Try Groq first ──────────────────────────────────────────
   if (groqKey) {
     try {
@@ -1972,7 +2034,7 @@ async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
     filtered.push({ role: "user", parts: [{ text: "Continúa el análisis." }] });
   }
 
-  for (const model of ["gemini-2.0-flash", "gemini-1.5-flash"]) {
+  for (const model of ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash-8b", "gemini-1.5-flash"]) {
     for (const useSystemInstr of [true, false]) {
       try {
         const body = useSystemInstr
@@ -2005,29 +2067,45 @@ async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
   return { text: null, reason: "no_text" };
 }
 
+// OpenRouter — tries 3 free models in order
+const OR_MODELS = [
+  "qwen/qwen-2.5-72b-instruct:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-r1-distill-llama-70b:free",
+];
+
 async function callOpenRouter(systemPrompt, chatMessages, maxTokens = 2500) {
   if (!openrouterKey) return null;
-  try {
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + openrouterKey,
-        "HTTP-Referer": "https://juniorxab.github.io/ProTipster",
-        "X-Title": "ProTipster IA"
-      },
-      body: JSON.stringify({
-        model: "qwen/qwen-2.5-72b-instruct:free", // best free model on OpenRouter
-        messages: [{ role: "system", content: systemPrompt }, ...chatMessages],
-        max_tokens: maxTokens,
-        temperature: 0.65
-      }),
-      signal: AbortSignal.timeout(35000)
-    });
-    if (!resp.ok) return null;
-    const d = await resp.json();
-    return d?.choices?.[0]?.message?.content || null;
-  } catch { return null; }
+  for (const model of OR_MODELS) {
+    try {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + openrouterKey,
+          "HTTP-Referer": "https://juniorxab.github.io/ProTipster",
+          "X-Title": "ProTipster IA"
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...chatMessages],
+          max_tokens: maxTokens,
+          temperature: 0.65
+        }),
+        signal: AbortSignal.timeout(40000)
+      });
+      if (!resp.ok) continue;
+      const d = await resp.json();
+      const text = d?.choices?.[0]?.message?.content || null;
+      if (text) {
+        // Update badge to show which OR model is active
+        const footer = document.querySelector(".input-footer");
+        if (footer) { footer.textContent = `🟣 OPENROUTER · ${model.split("/")[1]?.split(":")[0]?.toUpperCase()} · COL`; footer.style.color = "#a78bfa"; }
+        return text;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 function updateProviderBadge(provider) {
@@ -2068,15 +2146,17 @@ async function sendMessage() {
 
     updateTypingLabel("Analizando con IA...");
 
-    // Build system with reasoning embedded (no extra API call)
-    const systemPrompt = buildSystem() + `
+    // Trim context to last 6 messages to save tokens
+    const groqMsgs = messages.slice(-6).map(m => ({
+      role: m.role,
+      // Trim long assistant messages to save tokens on subsequent calls
+      content: m.role === "assistant" && m.content.length > 1200
+        ? m.content.slice(0, 1200) + "\n...[respuesta anterior truncada]"
+        : m.content
+    }));
+    const systemPrompt = buildSystem();
 
-## 🧠 RAZONAMIENTO INTERNO (haz esto antes de responder)
-Antes de tu respuesta, piensa brevemente: (1) qué datos son clave aquí, (2) qué sesgo evitar, (3) ¿hay edge real o no? Usa ese razonamiento para dar un análisis más preciso. NO muestres el razonamiento al usuario — solo el análisis final.`;
-
-    const groqMsgs = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
-
-    const { text: reply, provider } = await callAI(systemPrompt, groqMsgs, 2500);
+    const { text: reply, provider } = await callAI(systemPrompt, groqMsgs, 2200);
 
     removeTyping();
     if (provider === "groq") updateProviderBadge("groq");
