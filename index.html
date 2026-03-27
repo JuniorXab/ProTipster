@@ -161,6 +161,18 @@
   .live-btn:hover { background: rgba(255,71,87,0.2); }
   .live-btn.spinning { animation: spin .7s linear infinite; }
   @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+  /* ── Hamburger menu ── */
+  .menu-btn { padding: 5px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); cursor: pointer; font-size: 11px; font-family: var(--mono); font-weight: 700; letter-spacing: 0.05em; transition: all .15s; }
+  .menu-btn:hover { background: var(--accent-dim); border-color: rgba(0,229,184,0.3); color: var(--accent); }
+  .dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: #0f1318; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; min-width: 190px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.6); overflow: hidden; }
+  .dropdown-menu.open { display: block; animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+  .dd-item { padding: 10px 14px; font-size: 13px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; color: var(--text); cursor: pointer; letter-spacing: 0.02em; transition: background .12s; }
+  .dd-item:hover { background: rgba(255,255,255,0.06); }
+  .dd-item-danger { color: #f87171; }
+  .dd-item-danger:hover { background: rgba(239,68,68,0.08); }
+  .dd-sep { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
   .tracker-btn { padding: 4px 9px; border-radius: 6px; background: rgba(61,158,255,0.1); border: 1px solid rgba(61,158,255,0.3); color: var(--blue); cursor: pointer; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; transition: all .15s; }
   .tracker-btn:hover { background: rgba(61,158,255,0.2); }
 
@@ -467,10 +479,20 @@
 
       <!-- GEMINI FALLBACK -->
       <div style="margin-top:10px;padding:12px;background:rgba(66,133,244,0.06);border:1px solid rgba(66,133,244,0.2);border-radius:10px">
-        <div style="font-size:10px;color:#4285f4;font-family:var(--mono);letter-spacing:0.1em;margin-bottom:6px;font-weight:700">▸ GOOGLE GEMINI KEY (recomendado — fallback automático)</div>
-        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">Cuando Groq alcanza su límite, <strong style="color:#93c5fd">Gemini responde automáticamente</strong>. Gratis: 1M tokens/día · 15 req/min. Obtén tu key en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#4285f4">aistudio.google.com/apikey</a> → Create API Key (gratis, sin tarjeta).</div>
+        <div style="font-size:10px;color:#4285f4;font-family:var(--mono);letter-spacing:0.1em;margin-bottom:6px;font-weight:700">▸ GOOGLE GEMINI KEY (fallback #1)</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">Cuando Groq alcanza su límite, <strong style="color:#93c5fd">Gemini responde automáticamente</strong>. Gratis: 1M tokens/día. Obtén tu key en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#4285f4">aistudio.google.com/apikey</a> → Create API Key.</div>
         <div class="key-wrap">
           <input class="inp" id="gemini-key-input" type="password" placeholder="AIza... (opcional pero recomendado)" style="font-family:var(--mono);font-size:12px" />
+          <button class="eye-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'">👁</button>
+        </div>
+      </div>
+
+      <!-- OPENROUTER FALLBACK -->
+      <div style="margin-top:10px;padding:12px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);border-radius:10px">
+        <div style="font-size:10px;color:#a78bfa;font-family:var(--mono);letter-spacing:0.1em;margin-bottom:6px;font-weight:700">▸ OPENROUTER KEY (fallback #2 — más modelos)</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">3er fallback con acceso a Mistral, Qwen, DeepSeek y más. Gratis con límite diario en <a href="https://openrouter.ai/keys" target="_blank" style="color:#a78bfa">openrouter.ai/keys</a> → Create Key (sin tarjeta).</div>
+        <div class="key-wrap">
+          <input class="inp" id="openrouter-key-input" type="password" placeholder="sk-or-... (opcional)" style="font-family:var(--mono);font-size:12px" />
           <button class="eye-btn" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'">👁</button>
         </div>
       </div>
@@ -500,16 +522,22 @@
     </div>
     <div class="col-clock" id="col-clock">🕐 --:--:-- COL</div>
     <div class="header-right">
-      <span class="stake-pill">🟢1-4</span>
-      <span class="stake-pill">🟡5-8</span>
-      <span class="stake-pill">🔴9-10</span>
-      <button class="install-btn" id="install-btn" onclick="pwaInstall()" title="Instalar app en tu celular">📲 INSTALAR</button>
       <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
-      <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear oportunidades Stake 8+">🔍 SCAN</button>
-      <button class="tracker-btn" onclick="openTracker()" title="Bankroll & Historial">📊 TRACKER</button>
-      <button class="icon-btn" title="Cambiar API Key" onclick="goSetup()">🔑</button>
-      <button class="icon-btn" title="Borrar historial" onclick="clearHistory()">🗑</button>
-      <button class="txt-btn" onclick="logout()">SALIR</button>
+      <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear Stake 8+">🔍 SCAN</button>
+      <!-- Hamburger menu -->
+      <div style="position:relative">
+        <button class="menu-btn" id="menu-btn" onclick="toggleMenu()" title="Menú">≡ MENÚ</button>
+        <div class="dropdown-menu" id="dropdown-menu">
+          <div class="dd-item" onclick="openTracker();closeMenu()">📊 Bankroll Tracker</div>
+          <div class="dd-item" onclick="runScanner();closeMenu()">🔍 Escanear Stake 8+</div>
+          <div class="dd-sep"></div>
+          <div class="dd-item" onclick="pwaInstall();closeMenu()">📲 Instalar app</div>
+          <div class="dd-item" onclick="goSetup();closeMenu()">🔑 Configurar APIs</div>
+          <div class="dd-item" onclick="clearHistory();closeMenu()">🗑 Borrar historial</div>
+          <div class="dd-sep"></div>
+          <div class="dd-item dd-item-danger" onclick="logout()">⏻ Cerrar sesión</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -632,7 +660,8 @@
 // ══════════════════════════════════════════════════════════════
 let currentUser = null;
 let groqKey     = "";
-let geminiKey   = "";   // Google Gemini fallback
+let geminiKey   = "";   // Google Gemini fallback #1
+let openrouterKey = ""; // OpenRouter fallback #2
 let messages    = [];
 let sportsCtx       = "";
 let apiFootballKey  = "";
@@ -753,6 +782,7 @@ function loginUser(u, acc) {
   currentUser = u;
   groqKey        = acc.groqKey        || "";
   geminiKey      = acc.geminiKey      || "";
+  openrouterKey  = acc.openrouterKey  || "";
   oddsKey        = acc.oddsKey        || "";
   apiFootballKey = acc.apiFootballKey || "";
   messages = acc.messages || [];
@@ -766,7 +796,7 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; geminiKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
+  currentUser = null; groqKey = ""; geminiKey = ""; openrouterKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
   if (clockTimer) clearInterval(clockTimer);
   stopAutoRefresh();
   stopLiveTracking();
@@ -784,6 +814,7 @@ function goSetup() {
   document.getElementById("key-input").value = groqKey || "";
   document.getElementById("odds-key-input").value = oddsKey || "";
   if (document.getElementById("gemini-key-input")) document.getElementById("gemini-key-input").value = geminiKey || "";
+  if (document.getElementById("openrouter-key-input")) document.getElementById("openrouter-key-input").value = openrouterKey || "";
   if (document.getElementById("apifootball-key-input")) document.getElementById("apifootball-key-input").value = apiFootballKey || "";
   document.getElementById("key-err").textContent = "";
   showScreen("setup");
@@ -808,10 +839,11 @@ function saveKey() {
   groqKey    = k;
   oddsKey    = ok;
   geminiKey  = gk;
+  openrouterKey = (document.getElementById("openrouter-key-input")?.value || "").trim();
   const afk  = (document.getElementById("apifootball-key-input")?.value || "").trim();
   apiFootballKey = afk;
   const acc = getAccount(currentUser);
-  if (acc) saveAccount(currentUser, { ...acc, groqKey: k, oddsKey: ok, geminiKey: gk, apiFootballKey: afk });
+  if (acc) saveAccount(currentUser, { ...acc, groqKey: k, oddsKey: ok, geminiKey: gk, openrouterKey, apiFootballKey: afk });
   openChat();
 }
 
@@ -910,15 +942,26 @@ async function loadAPIFootball() {
   const today  = colNow.getFullYear() + "-" + String(colNow.getMonth()+1).padStart(2,"0") + "-" + String(colNow.getDate()).padStart(2,"0");
   const parts  = [];
 
+  // Support both RapidAPI keys (longer) and direct api-sports keys
+  // Direct key from dashboard.api-football.com uses "x-apisports-key" header
+  // RapidAPI key uses "x-rapidapi-key" header
+  const isRapidAPI = apiFootballKey.length > 50; // RapidAPI keys are typically longer
+  const afHeaders = isRapidAPI
+    ? { "x-rapidapi-key": apiFootballKey, "x-rapidapi-host": "v3.football.api-sports.io" }
+    : { "x-apisports-key": apiFootballKey };
+
+  const afFetch = (url) => fetch(url, { headers: afHeaders, signal: AbortSignal.timeout(7000) });
+
   // Fetch today's fixtures for key leagues
   await Promise.allSettled(AF_LEAGUES.map(async (lg) => {
     try {
-      const r = await fetch(
-        `https://v3.football.api-sports.io/fixtures?league=${lg.id}&date=${today}&timezone=America%2FBogota`,
-        { headers: { "x-rapidapi-key": apiFootballKey, "x-rapidapi-host": "v3.football.api-sports.io" }, signal: AbortSignal.timeout(6000) }
+      const r = await afFetch(
+        `https://v3.football.api-sports.io/fixtures?league=${lg.id}&date=${today}&timezone=America%2FBogota`
       );
       if (!r.ok) return;
       const d = await r.json();
+      // API-Sports wraps errors in response array too
+      if (d?.errors && Object.keys(d.errors).length > 0) return;
       const fx = d?.response || [];
       if (!fx.length) return;
       const lines = fx.map(f => {
@@ -930,8 +973,7 @@ async function loadAPIFootball() {
         const min  = f.fixture?.status?.elapsed;
         const isLive = ["1H","HT","2H","ET","BT","P"].includes(st);
         const time   = f.fixture?.date ? (() => {
-          const colMs = new Date(f.fixture.date).getTime();
-          const d2    = new Date(colMs);
+          const d2 = new Date(new Date(f.fixture.date).getTime());
           return String(d2.getHours()).padStart(2,"0") + ":" + String(d2.getMinutes()).padStart(2,"0") + " COL";
         })() : "";
         return `  • ${away} vs ${home}${isLive ? ` [${as_}-${hs}] 🔴${min?min+"'":""}` : ""} | ${st}${!isLive&&time?" | "+time:""}`;
@@ -942,11 +984,10 @@ async function loadAPIFootball() {
 
   // All live games globally
   try {
-    const r = await fetch("https://v3.football.api-sports.io/fixtures?live=all",
-      { headers: { "x-rapidapi-key": apiFootballKey, "x-rapidapi-host": "v3.football.api-sports.io" }, signal: AbortSignal.timeout(6000) });
+    const r = await afFetch("https://v3.football.api-sports.io/fixtures?live=all");
     if (r.ok) {
       const d    = await r.json();
-      const live = (d?.response || []).slice(0, 14);
+      const live = (d?.response || []).slice(0, 15);
       if (live.length) {
         const lines = live.map(f => {
           const home = f.teams?.home?.name || "?";
@@ -1111,7 +1152,7 @@ async function loadNBAInjuries() {
   } catch { injuryCtx = ""; }
 }
 
-// ── The Odds API — all available leagues + EU bookmakers + pre-calculated edge ──
+// ── The Odds API — all available leagues + pre-calculated edge ──
 async function loadOdds() {
   if (!oddsKey) { oddsCtx = ""; return; }
   try {
@@ -1128,14 +1169,15 @@ async function loadOdds() {
       { key: "soccer_mexico_ligamx",        label: "🇲🇽 Liga MX" },
       { key: "soccer_conmebol_libertadores",label: "🏆 Copa Libertadores" },
     ];
-    // EU/LATAM focused bookmakers — relevant for Colombian users
-    const bookmakers = "bet365,unibet,pinnacle,betfair,williamhill";
-    const markets    = "h2h,totals";  // skip spreads to save API quota
+    // Use eu,us regions for broadest bookmaker coverage
+    const regions    = "eu,us";
+    const bookmakers = "bet365,pinnacle,unibet,betfair,williamhill,draftkings,bovada";
+    const markets    = "h2h,totals";
     const parts = [];
 
     await Promise.allSettled(sports.map(async ({ key, label }) => {
       try {
-        const url = `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${oddsKey}&regions=eu&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
+        const url = `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${oddsKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&bookmakers=${bookmakers}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
         if (!r.ok) return;
         const games = await r.json();
@@ -1864,8 +1906,17 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
             updateProviderBadge("gemini");
             return { text: gText, provider: "gemini" };
           }
-          // Gemini failed — throw with reason info
+          // Gemini failed — try OpenRouter before countdown
+          if (openrouterKey) {
+            const orText = await callOpenRouter(systemPrompt, chatMessages, maxTokens);
+            if (orText) { activeProvider = "openrouter"; updateProviderBadge("openrouter"); return { text: orText, provider: "openrouter" }; }
+          }
           throw { type: "RATE_LIMIT", waitSecs, geminiReason: gReason };
+        }
+        // No Gemini → try OpenRouter
+        if (openrouterKey) {
+          const orText = await callOpenRouter(systemPrompt, chatMessages, maxTokens);
+          if (orText) { activeProvider = "openrouter"; updateProviderBadge("openrouter"); return { text: orText, provider: "openrouter" }; }
         }
         throw { type: "RATE_LIMIT", waitSecs, geminiReason: "no_key" };
       }
@@ -1875,24 +1926,31 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2500) {
       throw e2?.error?.message || ("HTTP " + resp.status);
 
     } catch (err) {
-      // If it's a structured error we threw, re-throw
       if (err === "KEY_INVALID" || (err && err.type === "RATE_LIMIT")) throw err;
-      // Network error → try Gemini
+      // Network error → try fallbacks
       if (geminiKey) {
         const { text: gText } = await callGemini(systemPrompt, chatMessages, maxTokens);
-        if (gText) { activeProvider = "gemini"; return { text: gText, provider: "gemini" }; }
+        if (gText) { activeProvider = "gemini"; updateProviderBadge("gemini"); return { text: gText, provider: "gemini" }; }
+      }
+      if (openrouterKey) {
+        const orText = await callOpenRouter(systemPrompt, chatMessages, maxTokens);
+        if (orText) { activeProvider = "openrouter"; updateProviderBadge("openrouter"); return { text: orText, provider: "openrouter" }; }
       }
       throw err;
     }
   }
 
-  // ── Groq key not set → try Gemini directly ──────────────────
+  // ── No Groq → try Gemini → OpenRouter ───────────────────────
   if (geminiKey) {
     const { text: gText } = await callGemini(systemPrompt, chatMessages, maxTokens);
-    if (gText) { activeProvider = "gemini"; return { text: gText, provider: "gemini" }; }
+    if (gText) { activeProvider = "gemini"; updateProviderBadge("gemini"); return { text: gText, provider: "gemini" }; }
+  }
+  if (openrouterKey) {
+    const orText = await callOpenRouter(systemPrompt, chatMessages, maxTokens);
+    if (orText) { activeProvider = "openrouter"; updateProviderBadge("openrouter"); return { text: orText, provider: "openrouter" }; }
   }
 
-  throw "No hay API configurada. Ve a Ajustes (🔑) y agrega al menos una key.";
+  throw "No hay API configurada. Ve a 🔑 Ajustes y agrega al menos una key.";
 }
 
 async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
@@ -1947,17 +2005,42 @@ async function callGemini(systemPrompt, chatMessages, maxTokens = 2500) {
   return { text: null, reason: "no_text" };
 }
 
+async function callOpenRouter(systemPrompt, chatMessages, maxTokens = 2500) {
+  if (!openrouterKey) return null;
+  try {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + openrouterKey,
+        "HTTP-Referer": "https://juniorxab.github.io/ProTipster",
+        "X-Title": "ProTipster IA"
+      },
+      body: JSON.stringify({
+        model: "qwen/qwen-2.5-72b-instruct:free", // best free model on OpenRouter
+        messages: [{ role: "system", content: systemPrompt }, ...chatMessages],
+        max_tokens: maxTokens,
+        temperature: 0.65
+      }),
+      signal: AbortSignal.timeout(35000)
+    });
+    if (!resp.ok) return null;
+    const d = await resp.json();
+    return d?.choices?.[0]?.message?.content || null;
+  } catch { return null; }
+}
+
 function updateProviderBadge(provider) {
-  // Update footer to show active provider
   const footer = document.querySelector(".input-footer");
   if (!footer) return;
-  if (provider === "gemini") {
-    footer.textContent = "GEMINI 2.0 FLASH (activo) · Groq límite alcanzado · ESPN + ODDS · COL";
-    footer.style.color = "#4285f4";
-  } else {
-    footer.textContent = "GROQ · LLAMA 3.3 70B · ESPN + NBA + INJURIES · ODDS REALES · HORA COLOMBIA";
-    footer.style.color = "";
-  }
+  const badges = {
+    groq:        { text: "GROQ · LLAMA 3.3 70B · ESPN + NBA · ODDS REALES · COL", color: "" },
+    gemini:      { text: "🤖 GEMINI FLASH (activo) · Groq límite · ESPN + ODDS · COL", color: "#4285f4" },
+    openrouter:  { text: "🟣 OPENROUTER · QWEN 72B (activo) · ESPN + ODDS · COL", color: "#a78bfa" },
+  };
+  const b = badges[provider] || badges.groq;
+  footer.textContent = b.text;
+  footer.style.color = b.color;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2040,14 +2123,19 @@ Antes de tu respuesta, piensa brevemente: (1) qué datos son clave aquí, (2) qu
         if (inp) inp.disabled = true;
         if (btn) { btn.disabled = true; btn.classList.remove("ready"); }
         let rem = secs;
-        const iv = setInterval(() => {
+        // Clear any previous stuck interval
+        if (window._rateLimitIv) { clearInterval(window._rateLimitIv); window._rateLimitIv = null; }
+        window._rateLimitIv = setInterval(() => {
           rem--;
           if (bar) bar.style.width = Math.max(0, (rem / secs * 100)) + "%";
           if (rem <= 0) {
-            clearInterval(iv);
+            clearInterval(window._rateLimitIv); window._rateLimitIv = null;
             isRateLimited = false;
             if (inp) { inp.disabled = false; inp.focus(); }
             if (btn) btn.disabled = false;
+            // Show recovery message in the last countdown bubble
+            const cdEl = document.getElementById(cid);
+            if (cdEl) { cdEl.textContent = "✅ Límite recuperado. Ya puedes escribir."; cdEl.style.color = "#22c55e"; cdEl.style.fontSize = "14px"; }
           }
         }, 1000);
       }, 80);
@@ -2527,8 +2615,32 @@ if ("serviceWorker" in navigator) {
   const swBlob = new Blob([swCode], { type: "application/javascript" });
   const swUrl  = URL.createObjectURL(swBlob);
   navigator.serviceWorker.register(swUrl, { scope: "./" })
-    .catch(() => {}); // Silent fail — doesn't affect app functionality
+    .catch(() => {});
 }
+
+// ══════════════════════════════════════════════════════════════
+//  HAMBURGER MENU
+// ══════════════════════════════════════════════════════════════
+function toggleMenu() {
+  const menu = document.getElementById("dropdown-menu");
+  if (!menu) return;
+  menu.classList.toggle("open");
+}
+
+function closeMenu() {
+  const menu = document.getElementById("dropdown-menu");
+  if (menu) menu.classList.remove("open");
+}
+
+// Close menu when clicking outside
+document.addEventListener("click", (e) => {
+  const menu = document.getElementById("dropdown-menu");
+  const btn  = document.getElementById("menu-btn");
+  if (!menu || !btn) return;
+  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.remove("open");
+  }
+});
 </script>
 </body>
 </html>
