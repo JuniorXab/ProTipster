@@ -1033,7 +1033,7 @@ async function loadAPIFootball() {
 
 async function loadESPN() {
   const parts = [];
-  liveGames = [];
+  // liveGames reset moved to refreshData() so SofaScore live data isn't wiped
   const colNow = getColombiaTime();
   const colStr = formatColDateFull(colNow);
 
@@ -1303,24 +1303,64 @@ async function loadSofaScore() {
       }
     } catch {}
 
-    // ── 3. All live football globally ─────────────────────────
+    // ── 3. All live football + basketball globally → populate liveGames[] ──
     try {
+      // Football live
       const lr = await fetch("https://api.sofascore.com/api/v1/sport/football/events/live",
         { headers: hdrs, signal: AbortSignal.timeout(5000) });
       if (lr.ok) {
         const ld = await lr.json();
-        const liveEvs = (ld?.events || []).slice(0, 12);
+        const liveEvs = (ld?.events || []);
         if (liveEvs.length) {
-          const liveLines = liveEvs.map(ev => {
+          const liveLines = [];
+          for (const ev of liveEvs.slice(0, 15)) {
             const h   = ev.homeTeam?.name || "?";
             const a   = ev.awayTeam?.name || "?";
             const hs  = ev.homeScore?.current ?? "-";
             const as_ = ev.awayScore?.current ?? "-";
             const t   = ev.tournament?.name || "?";
             const min = ev.status?.description || "";
-            return `  • ${a} ${as_}-${hs} ${h} 🔴 ${min} | ${t}`;
-          });
+            liveLines.push(`  • ${a} ${as_}-${hs} ${h} 🔴 ${min} | ${t}`);
+            // Feed liveGames[] so banner and chip show correctly
+            liveGames.push({
+              league: t, sport: "⚽",
+              home: h, away: a,
+              homeScore: String(hs), awayScore: String(as_),
+              detail: min, period: "",
+              source: "sofascore"
+            });
+          }
           parts.unshift("🔴 **FÚTBOL EN VIVO AHORA (SofaScore):**\n" + liveLines.join("\n"));
+        }
+      }
+    } catch {}
+
+    // Basketball live (NBA + other)
+    try {
+      const blr = await fetch("https://api.sofascore.com/api/v1/sport/basketball/events/live",
+        { headers: hdrs, signal: AbortSignal.timeout(5000) });
+      if (blr.ok) {
+        const bld = await blr.json();
+        const bLiveEvs = (bld?.events || []);
+        if (bLiveEvs.length) {
+          const bLiveLines = [];
+          for (const ev of bLiveEvs.slice(0, 10)) {
+            const h   = ev.homeTeam?.name || "?";
+            const a   = ev.awayTeam?.name || "?";
+            const hs  = ev.homeScore?.current ?? "-";
+            const as_ = ev.awayScore?.current ?? "-";
+            const t   = ev.tournament?.name || "?";
+            const per = ev.status?.description || "";
+            bLiveLines.push(`  • ${a} ${as_}-${hs} ${h} 🔴 ${per} | ${t}`);
+            liveGames.push({
+              league: t, sport: "🏀",
+              home: h, away: a,
+              homeScore: String(hs), awayScore: String(as_),
+              detail: per, period: "",
+              source: "sofascore"
+            });
+          }
+          parts.push("🏀 **BASKETBALL EN VIVO (SofaScore):**\n" + bLiveLines.join("\n"));
         }
       }
     } catch {}
@@ -1847,6 +1887,8 @@ async function refreshData() {
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   updateCtxChips("loading");
+  // Reset liveGames here so both ESPN and SofaScore can contribute
+  liveGames = [];
 
   try {
     const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadNBAAdvanced(), loadNBAPlayerStats(), loadTomorrow(), loadNBALive(), loadSofaScore()];
@@ -1886,7 +1928,7 @@ function renderLiveBanner() {
   banner.classList.add("show");
   inner.innerHTML = liveGames.map(g =>
     `<div class="live-game-chip" onclick="askAboutLive('${g.away} vs ${g.home}', '${g.league}')">
-      <strong>🔴 ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home}</strong>
+      <strong>${g.sport||"🔴"} ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home}</strong>
       <span style="color:rgba(255,138,148,0.6);margin-left:5px">${g.league}${g.detail ? ' · ' + g.detail : ''}</span>
     </div>`
   ).join("");
@@ -1909,7 +1951,11 @@ function updateCtxChips(state) {
   if (state === "loading") {
     row.innerHTML = `<span class="ctx-chip warn">⟳ Cargando datos...</span>`;
   } else if (state === "ok") {
-    const liveTxt   = liveGames.length ? `🔴 ${liveGames.length} vivo` : "Sin live";
+    const fbLive  = liveGames.filter(g => g.sport === "⚽" || !g.sport).length;
+    const nbaLiveCount = liveGames.filter(g => g.sport === "🏀").length;
+    const liveLabel = liveGames.length
+      ? `🔴 ${liveGames.length} vivo${fbLive ? ` ⚽${fbLive}` : ""}${nbaLiveCount ? ` 🏀${nbaLiveCount}` : ""}`
+      : "Sin live";
     const trackTxt  = liveTrackingMatch ? `⟳ ${liveTrackingMatch.away.split(' ')[0]} vs ${liveTrackingMatch.home.split(' ')[0]}` : "";
     const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
     const advTxt    = nbaAdvanced ? "📊 NBA Advanced" : "";
@@ -1923,7 +1969,7 @@ function updateCtxChips(state) {
     row.innerHTML = `
       <span class="ctx-chip ok">✓ ESPN</span>
       <span class="ctx-chip ok">✓ NBA</span>
-      <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveTxt}</span>
+      <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveLabel}</span>
       <span class="ctx-chip ok">🇨🇴 COL</span>
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
       ${advTxt     ? `<span class="ctx-chip ok">${advTxt}</span>`    : ""}
