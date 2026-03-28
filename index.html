@@ -669,7 +669,9 @@ let apiFootballCtx  = "";
 let tomorrowCtx     = "";   // ESPN fixtures next 2 days
 let tsdbCtx         = "";   // TheSportsDB enrichment for searched teams
 let nbaLineups     = "";
+let nbaLive        = "";   // cdn.nba.com live scoreboard (30s refresh)
 let nbaAdvanced    = "";   // NBA Stats API: team Net Rating, Pace, ORTG/DRTG
+let sofascoreCtx   = "";   // SofaScore: lineups, H2H, live stats
 let nbaPlayerStats = "";   // BallDontLie: top player averages for today's teams
 let liveGames   = [];
 let isLoading   = false;
@@ -815,7 +817,7 @@ function loginUser(u, acc) {
 }
 
 function logout() {
-  currentUser = null; groqKey = ""; geminiKey = ""; openrouterKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; nbaAdvanced = ""; nbaPlayerStats = ""; liveGames = []; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
+  currentUser = null; groqKey = ""; geminiKey = ""; openrouterKey = ""; oddsKey = ""; apiFootballKey = ""; messages = []; sportsCtx = ""; nbaLineups = ""; nbaLive = ""; nbaAdvanced = ""; nbaPlayerStats = ""; liveGames = []; sofascoreCtx = ""; oddsCtx = ""; injuryCtx = ""; apiFootballCtx = ""; tomorrowCtx = ""; tsdbCtx = "";
   if (clockTimer) clearInterval(clockTimer);
   stopAutoRefresh();
   stopLiveTracking();
@@ -1096,6 +1098,173 @@ async function loadESPN() {
 
   sportsCtx = `📅 HOY Colombia: ${colStr}\n\n` + parts.join("\n\n");
   return parts.length > 0;
+}
+
+// ── NBA Live Scoreboard (cdn.nba.com) ────────────────────────
+// Updated every 30s during games — real-time scores, quarter, clock
+async function loadNBALive() {
+  try {
+    const r = await fetch(
+      "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json",
+      { cache: "no-store", signal: AbortSignal.timeout(5000) }
+    );
+    if (!r.ok) { nbaLive = ""; return; }
+    const d = await r.json();
+    const games = d?.scoreboard?.games || [];
+    if (!games.length) { nbaLive = ""; return; }
+
+    const colNow = getColombiaTime();
+    const lines = games.map(g => {
+      const home     = g.homeTeam;
+      const away     = g.awayTeam;
+      const status   = g.gameStatusText || "";
+      const period   = g.period || 0;
+      const clock    = g.gameClock ? g.gameClock.replace("PT","").replace("M","m ").replace("S","s").trim() : "";
+      const isLive   = g.gameStatus === 2;
+      const isDone   = g.gameStatus === 3;
+
+      // Scores
+      const hs = home?.score ?? "-";
+      const as = away?.score ?? "-";
+
+      // Team leaders if available
+      const homeLeader = home?.players
+        ? (home.players.sort((a,b) => (b.statistics?.points||0)-(a.statistics?.points||0))[0])
+        : null;
+      const awayLeader = away?.players
+        ? (away.players.sort((a,b) => (b.statistics?.points||0)-(a.statistics?.points||0))[0])
+        : null;
+
+      let line = `  • ${away?.teamName||"?"} ${as} - ${hs} ${home?.teamName||"?"}`;
+      if (isLive) line += ` 🔴 Q${period}${clock?" "+clock:""}`;
+      else if (isDone) line += ` ✅ Final`;
+      else line += ` | ${status}`;
+
+      // Add leaders if live
+      if ((isLive || isDone) && homeLeader?.statistics) {
+        const hl = homeLeader.statistics;
+        line += ` | Líder casa: ${homeLeader.name||"?"} ${hl.points}pts/${hl.reboundsTotal}reb/${hl.assists}ast`;
+      }
+      if ((isLive || isDone) && awayLeader?.statistics) {
+        const al = awayLeader.statistics;
+        line += ` | Líder visit: ${awayLeader.name||"?"} ${al.points}pts/${al.reboundsTotal}reb/${al.assists}ast`;
+      }
+      return line;
+    });
+
+    const hasLive = games.some(g => g.gameStatus === 2);
+    nbaLive = "🏀 **NBA LIVE (cdn.nba.com" + (hasLive ? " — PARTIDOS EN VIVO" : "") + "):**\n" + lines.join("\n");
+  } catch { nbaLive = ""; }
+}
+
+// ── SofaScore (API no oficial) ────────────────────────────────
+// Covers all leagues: lineups, H2H, live stats, player ratings
+async function loadSofaScore() {
+  sofascoreCtx = "";
+  try {
+    const colNow = getColombiaTime();
+    const yyyy = colNow.getFullYear();
+    const mm   = String(colNow.getMonth()+1).padStart(2,"0");
+    const dd   = String(colNow.getDate()).padStart(2,"0");
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    // Get today's scheduled events
+    const r = await fetch(
+      `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${dateStr}`,
+      { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(7000) }
+    );
+    if (!r.ok) { return; }
+    const d = await r.json();
+    const events = d?.events || [];
+    if (!events.length) return;
+
+    // Group by tournament, max 3 events per tournament
+    const byTournament = {};
+    for (const ev of events) {
+      const tName = ev.tournament?.name || "Other";
+      if (!byTournament[tName]) byTournament[tName] = [];
+      if (byTournament[tName].length < 3) byTournament[tName].push(ev);
+    }
+
+    const parts = [];
+    // Process top tournaments (Liga BetPlay first, then big leagues)
+    const priority = ["Primera A", "BetPlay", "Premier", "LaLiga", "Champions", "Serie A", "Bundesliga", "Libertadores"];
+    const sorted = Object.entries(byTournament).sort(([a], [b]) => {
+      const ai = priority.findIndex(p => a.includes(p));
+      const bi = priority.findIndex(p => b.includes(p));
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    for (const [tName, evs] of sorted.slice(0, 8)) {
+      const lines = [];
+      for (const ev of evs) {
+        const home   = ev.homeTeam?.name || "?";
+        const away   = ev.awayTeam?.name || "?";
+        const evId   = ev.id;
+        const status = ev.status?.description || "";
+        const hScore = ev.homeScore?.current ?? "-";
+        const aScore = ev.awayScore?.current ?? "-";
+        const isLive = ev.status?.type === "inprogress";
+        const isDone = ev.status?.type === "finished";
+        const startTs = ev.startTimestamp;
+        const timeStr = startTs ? toColStr(new Date(startTs * 1000)) : "";
+
+        let line = `  • ${away} vs ${home}`;
+        if (isLive) line += ` [${aScore}-${hScore}] 🔴 ${ev.status?.description||""}`;
+        else if (isDone) line += ` [${aScore}-${hScore}] ✅`;
+        else if (timeStr) line += ` | ${timeStr}`;
+
+        // Fetch lineups for live/upcoming games (only top 2 per tournament to limit calls)
+        if (evId && lines.length < 2 && (isLive || (!isDone && startTs && (startTs*1000 - Date.now()) < 7200000))) {
+          try {
+            const lr = await fetch(
+              `https://api.sofascore.com/api/v1/event/${evId}/lineups`,
+              { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(4000) }
+            );
+            if (lr.ok) {
+              const ld = await lr.json();
+              const confirmed = ld?.confirmed;
+              if (confirmed) {
+                const hStarters = (ld?.home?.players||[]).filter(p=>p.position).slice(0,3).map(p=>p.player?.name||"?").join(", ");
+                const aStarters = (ld?.away?.players||[]).filter(p=>p.position).slice(0,3).map(p=>p.player?.name||"?").join(", ");
+                if (hStarters || aStarters) {
+                  line += `\n    📋 Lineup confirmado — ${home}: ${hStarters||"N/A"} | ${away}: ${aStarters||"N/A"}`;
+                }
+              }
+            }
+          } catch {}
+        }
+        lines.push(line);
+      }
+      if (lines.length) parts.push(`⚽ **${tName}:**\n${lines.join("\n")}`);
+    }
+
+    // Also fetch live scores separately for all live games
+    try {
+      const lr = await fetch(
+        "https://api.sofascore.com/api/v1/sport/football/events/live",
+        { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(5000) }
+      );
+      if (lr.ok) {
+        const ld = await lr.json();
+        const liveEvs = (ld?.events || []).slice(0, 10);
+        if (liveEvs.length) {
+          const liveLines = liveEvs.map(ev => {
+            const h = ev.homeTeam?.name || "?";
+            const a = ev.awayTeam?.name || "?";
+            const hs = ev.homeScore?.current ?? "-";
+            const as = ev.awayScore?.current ?? "-";
+            const t = ev.tournament?.name || "?";
+            const min = ev.status?.description || "";
+            return `  • ${a} ${as}-${hs} ${h} 🔴 ${min} | ${t}`;
+          });
+          parts.unshift("🔴 **FÚTBOL EN VIVO AHORA (SofaScore):**\n" + liveLines.join("\n"));
+        }
+      }
+    } catch {}
+
+    if (parts.length) sofascoreCtx = parts.join("\n\n");
+  } catch { sofascoreCtx = ""; }
 }
 
 async function loadNBALineups() {
@@ -1544,7 +1713,7 @@ async function refreshData() {
   updateCtxChips("loading");
 
   try {
-    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadNBAAdvanced(), loadNBAPlayerStats(), loadTomorrow()];
+    const loaders = [loadESPN(), loadNBALineups(), loadNBAInjuries(), loadNBAAdvanced(), loadNBAPlayerStats(), loadTomorrow(), loadNBALive(), loadSofaScore()];
     if (oddsKey) loaders.push(loadOdds());
     if (apiFootballKey) loaders.push(loadAPIFootball());
     await Promise.allSettled(loaders);
@@ -1609,6 +1778,8 @@ function updateCtxChips(state) {
     const injTxt    = injuryCtx ? "🏥 Lesiones NBA" : "";
     const advTxt    = nbaAdvanced ? "📊 NBA Advanced" : "";
     const plyrTxt   = nbaPlayerStats ? "🏀 Players" : "";
+    const nbaLiveTxt= nbaLive && nbaLive.includes("EN VIVO") ? "🏀 NBA Live 🔴" : (nbaLive ? "🏀 NBA Live" : "");
+    const sofaTxt   = sofascoreCtx ? "⚽ SofaScore" : "";
     const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
     const afTxt     = apiFootballCtx ? "⚽ API-Football" : (apiFootballKey ? "⚽ Cargando..." : "");
     const tmrTxt    = tomorrowCtx ? "📅 +2 días" : "";
@@ -1619,8 +1790,10 @@ function updateCtxChips(state) {
       <span class="ctx-chip ${liveGames.length ? 'err' : 'warn'}">${liveTxt}</span>
       <span class="ctx-chip ok">🇨🇴 COL</span>
       ${injTxt  ? `<span class="ctx-chip warn">${injTxt}</span>`   : ""}
-      ${advTxt  ? `<span class="ctx-chip ok">${advTxt}</span>`    : ""}
-      ${plyrTxt ? `<span class="ctx-chip ok">${plyrTxt}</span>`   : ""}
+      ${advTxt     ? `<span class="ctx-chip ok">${advTxt}</span>`    : ""}
+      ${plyrTxt    ? `<span class="ctx-chip ok">${plyrTxt}</span>`   : ""}
+      ${nbaLiveTxt ? `<span class="ctx-chip ${nbaLive.includes("EN VIVO")?"err":"ok"}">${nbaLiveTxt}</span>` : ""}
+      ${sofaTxt    ? `<span class="ctx-chip ok">${sofaTxt}</span>`   : ""}
       ${oddsTxt ? `<span class="ctx-chip ok">${oddsTxt}</span>`    : ""}
       ${afTxt   ? `<span class="ctx-chip ok">${afTxt}</span>`     : ""}
       ${tmrTxt  ? `<span class="ctx-chip ok">${tmrTxt}</span>`    : ""}
@@ -1637,50 +1810,45 @@ function updateCtxChips(state) {
 //  SYSTEM PROMPT (potenciado)
 // ══════════════════════════════════════════════════════════════
 function buildSystem() {
-  // API-Football extra leagues context
-  const afSection      = apiFootballCtx ? `## ⚽ API-FOOTBALL (Liga B, Eliminatorias, Live global)\n${apiFootballCtx}\n` : "";
-  const tomorrowSection = tomorrowCtx ? `## 📅 PARTIDOS PRÓXIMOS (MAÑANA / PASADO MAÑANA)\n⚠️ Estos partidos NO han ocurrido aún — no inventes resultados.\n${tomorrowCtx}` : "";
-  const tsdbSection     = tsdbCtx     ? `${tsdbCtx}` : "";
+  const colNow    = getColombiaTime();
+  const colStr    = formatColDateFull(colNow);
+  const colHour   = colNow.getHours();
+  const colDateStr= String(colNow.getDate()).padStart(2,"0")+"/"+String(colNow.getMonth()+1).padStart(2,"0")+"/"+colNow.getFullYear();
 
-  const colNow = getColombiaTime();
-  const colStr = formatColDateFull(colNow);
-  const colHour = colNow.getHours();
+  // ── Helper: trim to char limit ──
+  const cap = (s, n) => s && s.length > n ? s.slice(0, n) + "…" : (s || "");
 
-  const timeContext = `## 🕐 HORA ACTUAL COLOMBIA (UTC-5)
-Fecha y hora exacta ahora mismo: **${colStr}**
-IMPORTANTE: Usa SIEMPRE la hora Colombia. Cuando menciones horarios de partidos, convierte a COL (UTC-5).
-Hora del día: ${colHour < 12 ? 'Mañana' : colHour < 17 ? 'Tarde' : 'Noche'} (${colHour}h COL)`;
+  const timeContext = `🕐 HOY: ${colStr}`;
 
-  // Cap sports context to ~2200 chars to avoid TPM overflow
-  const espnTrimmed = sportsCtx ? sportsCtx.slice(0, 2200) + (sportsCtx.length > 2200 ? "\n...(más partidos disponibles)" : "") : "";
-  const colDateStr = `${String(colNow.getDate()).padStart(2,'0')}/${String(colNow.getMonth()+1).padStart(2,'0')}/${colNow.getFullYear()}`;
-  const espnSection = espnTrimmed
-    ? `## 📡 PARTIDOS (ESPN — hora Colombia)\n⚠️ FECHA HOY: ${colDateStr}. Los partidos sin fecha explícita de hoy PUEDEN SER DE OTRA FECHA — verifica el campo de fecha/hora antes de analizarlos.\n${espnTrimmed}`
+  // Each section is aggressively capped to keep total prompt ~3000 tokens
+  const espnSection     = sportsCtx
+    ? `## 📡 PARTIDOS HOY (ESPN ${colDateStr})\n${cap(sportsCtx, 1200)}`
     : "";
+  const liveSection     = liveGames.length
+    ? `## 🔴 EN VIVO:\n${liveGames.slice(0,6).map(g=>`• ${g.away} ${g.awayScore}-${g.homeScore} ${g.home} | ${g.league}${g.detail?" "+g.detail:""}`).join("\n")}`
+    : "";
+  const nbaGamesLine    = nbaLineups ? `## 🏀 NBA HOY:\n${cap(nbaLineups, 400)}` : "";
+  const nbaLiveLine     = nbaLive ? `## 🏀 NBA LIVE (actualizado cada 30s):\n${cap(nbaLive, 600)}` : "";
+  const sofaLine        = sofascoreCtx ? `## ⚽ SOFASCORE (lineups+live+stats):\n${cap(sofascoreCtx, 900)}` : "";
+  const nbaAdvLine      = nbaAdvanced ? `## 📊 NBA ADVANCED:\n${cap(nbaAdvanced, 800)}` : "";
+  const nbaPlayersLine  = nbaPlayerStats ? `## 🏀 PLAYERS:\n${cap(nbaPlayerStats, 600)}` : "";
+  const injurySection   = injuryCtx ? `## 🏥 LESIONES NBA:\n${cap(injuryCtx, 400)}` : "";
+  const oddsSection     = oddsCtx
+    ? `## 💰 CUOTAS REALES (Bet365/Betcris):\n${cap(oddsCtx, 800)}\nEV=(prob_real×cuota-1)×100%. Apuesta si EV≥5%.`
+    : "";
+  const afSection       = apiFootballCtx ? `## ⚽ API-FOOTBALL:\n${cap(apiFootballCtx, 600)}` : "";
+  const tomorrowSection = tomorrowCtx ? `## 📅 MAÑANA/PASADO:\n${cap(tomorrowCtx, 500)}` : "";
+  const tsdbSection     = tsdbCtx ? `## 📋 TSDB:\n${cap(tsdbCtx, 400)}` : "";
 
-  const nbaSection = (nbaLineups || nbaAdvanced || nbaPlayerStats) ? [
-    nbaLineups    ? `## 🏀 NBA HOY — PARTIDOS\n${nbaLineups}` : "",
-    nbaAdvanced   ? nbaAdvanced : "",
-    nbaPlayerStats? nbaPlayerStats : "",
-  ].filter(Boolean).join("\n\n") : "";
-
-  const liveSection = liveGames.length ? `## 🔴 PARTIDOS EN VIVO AHORA MISMO
-${liveGames.map(g => `• ${g.away} ${g.awayScore} - ${g.homeScore} ${g.home} | ${g.league}${g.detail ? ` | ${g.detail}` : ''}`).join("\n")}
-PRIORIDAD: Analiza estos partidos con datos de marcador actual para detectar valor en live betting.` : "";
-
-  const injurySection = injuryCtx ? `## 🏥 NBA INJURY REPORT — JUGADORES FUERA/DUDOSOS
-${injuryCtx}
-IMPORTANTE: Ten en cuenta estas ausencias al calcular totales, hándicaps y props de jugadores.` : "";
-
-  const oddsSection = oddsCtx ? `## 💰 CUOTAS REALES EN TIEMPO REAL (The Odds API)
-${oddsCtx}
-INSTRUCCIÓN DE VALUE BETTING: Compara las cuotas reales con tu análisis de probabilidades. Si tu estimación da 60% de probabilidad y la cuota implica solo 45%, hay un VALUE BET claro (+15% edge). SIEMPRE menciona el porcentaje de value cuando lo detectes.` : "";
+  const nbaSection = [nbaLiveLine || nbaGamesLine, nbaAdvLine, nbaPlayersLine].filter(Boolean).join("\n\n");
 
   return `Eres **ProTipster** — analista de apuestas deportivas profesional con 5 años de experiencia activa. Tu objetivo es generar VALOR REAL para el usuario y que gane dinero con sus apuestas. No eres un bot genérico: eres un tipster serio que maneja conceptos avanzados.
 
 ${timeContext}
 
 ${espnSection}
+
+${sofaLine}
 
 ${nbaSection}
 
@@ -1696,53 +1864,14 @@ ${injurySection}
 
 ${oddsSection}
 
-## 🎯 TU ESPECIALIDAD
+## 🎯 ESPECIALIDAD
+**NBA:** NetRtg alto=mejor equipo. Pace alto→Over. Back-to-back=fatiga→Under/rival. Injuries cruza con línea. Props: busca FG% matchup.
+**FÚTBOL:** BTTS, totales, hándicap asiático. Motivación clave. Liga BetPlay=mercados ineficientes=más value.
 
-### NBA — Análisis Avanzado (datos reales disponibles en contexto)
-- **Net Rating:** diferencia ORTG-DRTG. El equipo con mayor Net Rating es objetivamente mejor. Diferencia > 5 puntos = ventaja significativa.
-- **Pace:** posesiones por 48min. Pace alto de ambos → Over tiene valor. Pace bajo → Under.
-- **ORTG/DRTG:** si un equipo tiene DRTG débil vs el ORTG del rival → ventaja ofensiva explotable en totales/hándicap.
-- **eFG%:** eficiencia real de tiro. eFG% > 55% = equipo elite en anotación.
-- **Player averages:** usa los promedios de jugadores clave para props (puntos, rebotes, asistencias, FG%).
-- **Back-to-backs:** 2do partido = fatiga → considera reducir total ~4-5 pts, equipo más fresco tiene ventaja ATS.
-- **Road trips largos (4+ partidos fuera):** el equipo local tiene ventaja adicional.
-- **Schedule tight (3 en 4 noches):** equipo en 3er partido = rotación = underdog value.
-- **Lesiones:** siempre cruza injury report con las líneas. Star player fuera → línea mal ajustada = value.
-- **Props:** busca mismatches: jugador con alto AST% vs defensa con alto TOV% = asistencias prop valioso.
-
-### FÚTBOL — Todos los mercados
-- Ligas: Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga MX, Champions League, Europa League, Conference League, Copa Libertadores, Copa Sudamericana, **Liga BetPlay Colombia**, MLS
-- **Mercados de valor:** Ambos equipos anotan (BTTS), totales de goles, hándicap asiático, corners, tarjetas
-- **Factores clave:** Motivación (mid-table stalemate = poco interés), fixture, fatiga, clima, árbitros conocidos
-- **Colombia:** Liga BetPlay tiene mercados más ineficientes = más valor para explotar
-
-## 🚨 DETECCIÓN DE STEAM MOVES (OBLIGATORIO CUANDO APLIQUE)
-
-Un **Steam Move** es cuando el dinero "sharp" (apostadores profesionales/sindicatos) entra en masa a un lado:
-- Línea NBA se mueve -3 a -4.5 o total de 220 a 223+ sin noticias públicas
-- Cuotas de fútbol caen de 2.10 a 1.75 en poco tiempo
-- Movimiento CONTRA la acción pública (público apuesta el favorito pero línea sube = sharps en underdog)
-
-**CUANDO DETECTES STEAM: SIEMPRE muestra el badge 🚨 STEAM MOVE DETECTADO y explica el movimiento.**
-
-## 💰 VALUE BETTING CON CUOTAS REALES
-
-Cuando tengas cuotas reales (sección CUOTAS REALES), aplica este proceso:
-1. **Estima la probabilidad real** del resultado basándote en tu análisis (ej: 58%)
-2. **Calcula la probabilidad implícita** de la cuota (ej: cuota 2.10 → 1/2.10 = 47.6%)
-3. **Edge = tu probabilidad - prob. implícita** (ej: 58% - 47.6% = +10.4% edge)
-4. **Solo apuesta si edge ≥ 5%.** A mayor edge, mayor stake justificado.
-5. **Formato obligatorio:** menciona "VALUE: +X%" en la justificación del stake
-
-Ejemplo: "Estimo 62% de probabilidad. Cuota 1.95 implica 51.3%. **VALUE: +10.7%** → Stake 8."
-
-## ⚡ ANÁLISIS EN VIVO (LIVE BETTING)
-
-Cuando analices un partido en vivo, usa el marcador actual para:
-1. **Detectar estados avanzados:** Si equipo fuerte va perdiendo en el Q2-Q3 o 2do tiempo, puede ser momento de apostar al comeback
-2. **Valor en totales live:** Si el partido va lento (pocos puntos/goles), el total under gana valor
-3. **Momentum:** Cambios de momentum, tiempo muertos, tarjetas recientes
-4. **Siempre menciona el marcador actual y el tiempo de juego al momento del análisis**
+## STEAM/VALUE/LIVE
+🚨 **Steam:** línea mueve sin noticia pública = sharps activos → sigue el dinero.
+💰 **EV:** EV=(prob_real×cuota-1)×100%. Solo si EV≥5%. Muestra cálculo.
+⚡ **Live:** usa marcador actual. Equipo fuerte perdiendo Q2/2T = comeback value. Partido lento = Under gana valor.
 
 ## 📊 SISTEMA DE STAKES — OBLIGATORIO EN CADA TIP
 
@@ -1753,27 +1882,8 @@ Cuando analices un partido en vivo, usa el marcador actual para:
 
 ---
 
-## 🔥 STAKE 10 — LA APUESTA DE ORO (REGLAS ESTRICTAS)
-
-El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando se cumplen TODOS estos criterios simultáneamente:
-
-### CHECKLIST OBLIGATORIO PARA STAKE 10 (mínimo 6 de 7 deben cumplirse):
-1. ✅ **FORMA RECIENTE DOMINANTE:** El equipo/jugador lleva 4+ resultados positivos consecutivos con métricas superiores
-2. ✅ **MATCHUP EXTREMADAMENTE FAVORABLE:** La debilidad del rival encaja perfectamente con la fortaleza del seleccionado
-3. ✅ **CONTEXTO/MOTIVACIÓN MÁXIMA:** Partido decisivo, orgullo, clasificación en juego, o racha que defender
-4. ✅ **H2H HISTÓRICO A FAVOR:** Historial reciente dominante en este tipo de enfrentamiento
-5. ✅ **CUOTA MAL CALIBRADA:** El mercado está claramente subestimando las probabilidades reales (mínimo 15% de value)
-6. ✅ **SIN FACTORES DE RIESGO MAYORES:** Sin lesiones clave, sin back-to-back crítico, sin distracción de fixture
-7. ✅ **CONFIRMACIÓN DE SHARP MONEY:** Movimiento de línea favorable o ausencia de acción contraria significativa
-
-### CUANDO DECLARES STAKE 10, DEBES:
-- Escribir la línea exacta: **🔥 STAKE: 10/10 — APUESTA DE ORO**
-- Incluir una sección **CHECKLIST STAKE 10:** con cada factor marcado ✅ o ❌ y explicado
-- Escribir la sección **POR QUÉ AHORA:** explicando la convergencia de factores en este momento específico
-- Mínimo 6-8 párrafos de análisis total
-- Nunca usar Stake 10 más de 1 vez por conversación a menos que sea genuinamente excepcional
-
-**SI DUDAS ENTRE STAKE 9 Y 10 → USA STAKE 9. El 10 es sagrado.**
+## 🔥 STAKE 10 — APUESTA DE ORO
+Solo cuando: forma dominante + matchup favorable + motivación máxima + H2H a favor + EV≥15% + sin lesiones clave + sharp money confirmado (mínimo 6 de 7). Escribe **🔥 STAKE: 10/10 — APUESTA DE ORO** + CHECKLIST + POR QUÉ AHORA. Máx 1 por conversación. Duda → usa Stake 9.
 
 ## 📋 FORMATO OBLIGATORIO DE TIPS
 
@@ -1799,46 +1909,16 @@ El **STAKE 10** es la máxima calificación. Se da MUY RARAMENTE — solo cuando
 
 ---
 
-## 🧠 CHAIN-OF-THOUGHT OBLIGATORIO (proceso interno antes de responder)
+## 🧠 PROCESO INTERNO
+1.DATOS→2.CONTEXTO(lesiones,b2b,motivación,H2H,forma)→3.EDGE(ineficiencia del mercado)→4.EV=(prob×cuota-1)×100%,solo si≥5%→5.STAKE proporcional.
 
-Antes de dar cualquier tip, realiza este proceso mentalmente:
-
-**PASO 1 — DATOS:** ¿Qué tengo? ESPN/API-Football para fixture. TheSportsDB para H2H y forma reciente. Odds API para cuotas reales. Injuries para ausencias.
-**PASO 2 — CONTEXTO:** Lesiones clave ✓/✗ | Back-to-back ✓/✗ | Motivación (playoffs/clasificación/mid-table) | H2H últimos 5 | Forma reciente (últimos 5)
-**PASO 3 — EDGE:** ¿Por qué el mercado está equivocado aquí? Identifica la ineficiencia específica.
-**PASO 4 — EV:** Calcula EV = (prob_real × cuota - 1) × 100%. Solo tips con EV ≥ 5%.
-**PASO 5 — STAKE:** Asigna stake proporcional al EV y convicción.
-
-## 📋 FORMATO OBLIGATORIO DE CADA TIP
-
-📡 *Fuentes usadas: [ESPN ✓/✗] [TheSportsDB ✓/✗] [Odds ✓/✗] [API-Football ✓/✗] | Actualizado: [HH:MM COL]*
-
-🎯 **[PARTIDO COMPLETO]**
-📅 Fecha/Hora: [HH:MM COL — siempre hora Colombia]
-🏆 Competición: [liga]
-📡 Estado: [Próximo / 🔴 EN VIVO]
-
-**ANÁLISIS PROFUNDO:**
-- 🏥 Lesiones/Bajas: [lista específica o "Sin bajas confirmadas"]
-- 📋 Lineup/Rotación: [titulares esperados o info disponible]
-- 📈 Forma reciente: [últimos 5 resultados reales o estimados]
-- ⚔️ H2H reciente: [últimos 3-5 enfrentamientos]
-- 💪 Motivación: [playoff/clasificación/orgullo/irrelevante]
-- ⚡ Ritmo/Momentum: [pace, tendencias, factor local]
-
-**EDGE DETECTADO:**
-[Razón específica por qué el mercado subestima/sobreestima]
-
-**APUESTA:**
-- Mercado: [tipo exacto]
-- Selección: [pick exacto]
-- Cuota: [valor — fuente: Bet365/Betcris/estimada]
-- 📈 **EV aproximado: +X.X%** — [cálculo: prob_real X% × cuota Y - 1]
-- ⚡ **STAKE: X/10** — [BAJO/MEDIO-BAJO/MEDIO-ALTO/PREMIUM/ORO]
-- 💬 Justificación: [razón concreta]
-
-[Si aplica: 🚨 **STEAM MOVE:** movimiento detectado]
-[Si aplica: 📊 **REVERSE LINE MOVEMENT:** público apuesta X pero línea mueve hacia Y]
+## 📋 FORMATO TIP
+📡 Fuentes:[ESPN✓/✗][TSDB✓/✗][Odds✓/✗] | HH:MM COL
+🎯 **PARTIDO** | 🏆 Liga | 📅 Hora COL | Estado
+🏥 Lesiones: | 📈 Forma(5): | ⚔️ H2H(3): | 💪 Motivación:
+**EDGE:** [por qué mercado errado]
+**APUESTA:** Mercado→Pick→Cuota | 📈 **EV: +X.X%** (prob×cuota-1) | ⚡ **STAKE: X/10**
+[🚨 STEAM si aplica] [📊 RLM si aplica]
 
 ---
 
@@ -1860,17 +1940,29 @@ Antes de dar cualquier tip, realiza este proceso mentalmente:
 function startAutoRefresh() {
   stopAutoRefresh();
   autoRefreshTimer = setInterval(async () => {
-    // Only refresh if there are live games or it's a good time to check
     await refreshData();
-    // If we're in live tracking, also trigger a live analysis
-    if (liveTrackingMatch) {
-      liveTrackCountdown = LIVE_ANALYSIS_INTERVAL;
-    }
+    if (liveTrackingMatch) liveTrackCountdown = LIVE_ANALYSIS_INTERVAL;
   }, LIVE_REFRESH_INTERVAL * 1000);
+
+  // NBA Live: separate 30s refresh only while NBA games are in progress
+  if (window._nbaLiveTimer) clearInterval(window._nbaLiveTimer);
+  window._nbaLiveTimer = setInterval(async () => {
+    await loadNBALive();
+    // Update ticker if we have live NBA games
+    const hasLiveNBA = nbaLive && nbaLive.includes("EN VIVO");
+    if (hasLiveNBA) {
+      const tickerText = document.getElementById("ticker-text");
+      if (tickerText) {
+        const liveCount = (nbaLive.match(/🔴/g) || []).length;
+        tickerText.textContent = `🏀 NBA LIVE — ${liveCount} partido(s) en vivo · ${toColStr(new Date())}`;
+      }
+    }
+  }, 30000);
 }
 
 function stopAutoRefresh() {
   if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  if (window._nbaLiveTimer) { clearInterval(window._nbaLiveTimer); window._nbaLiveTimer = null; }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2093,7 +2185,10 @@ async function callAI(systemPrompt, chatMessages, maxTokens = 2000) {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + groqKey },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          // Use 8b for short/simple queries to save TPM; 70b for analysis
+          model: (maxTokens <= 800 || chatMessages.slice(-1)[0]?.content?.length < 60)
+            ? "llama-3.1-8b-instant"
+            : "llama-3.3-70b-versatile",
           messages: [{ role: "system", content: systemPrompt }, ...chatMessages],
           max_tokens: maxTokens,
           temperature: 0.6,
