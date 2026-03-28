@@ -176,6 +176,28 @@
   .tracker-btn { padding: 4px 9px; border-radius: 6px; background: rgba(61,158,255,0.1); border: 1px solid rgba(61,158,255,0.3); color: var(--blue); cursor: pointer; font-size: 9px; font-family: var(--mono); letter-spacing: 0.06em; transition: all .15s; }
   .tracker-btn:hover { background: rgba(61,158,255,0.2); }
 
+  /* ── LIVE PANEL ── */
+  #screen-live { flex-direction: column; align-items: center; background: var(--bg); }
+  .live-panel-header { width:100%; max-width:760px; padding:10px 14px; background:rgba(8,11,16,0.97); border-bottom:1px solid rgba(255,71,87,0.2); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
+  .live-panel-title { font-size:16px; font-weight:800; letter-spacing:0.06em; color:var(--red); display:flex; align-items:center; gap:8px; }
+  .live-panel-body { width:100%; max-width:760px; padding:14px; overflow-y:auto; flex:1; }
+  .live-league-group { margin-bottom:16px; }
+  .live-league-name { font-size:10px; font-family:var(--mono); color:var(--muted); letter-spacing:0.1em; font-weight:700; margin-bottom:8px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .live-game-card {
+    background:var(--surface); border:1px solid rgba(255,71,87,0.2);
+    border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer;
+    transition:all .15s;
+  }
+  .live-game-card:hover { border-color:rgba(255,71,87,0.5); background:rgba(255,71,87,0.05); }
+  .live-game-score { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .live-team { font-size:14px; font-weight:700; color:var(--text); flex:1; }
+  .live-team.away { text-align:right; }
+  .live-score-box { background:rgba(255,71,87,0.12); border:1px solid rgba(255,71,87,0.3); border-radius:6px; padding:4px 12px; font-size:16px; font-weight:800; font-family:var(--mono); color:var(--red); white-space:nowrap; }
+  .live-game-meta { font-size:10px; font-family:var(--mono); color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
+  .live-time-badge { background:var(--red-dim); color:var(--red); padding:2px 7px; border-radius:4px; font-weight:700; }
+  .live-empty { text-align:center; padding:40px 20px; color:var(--muted); font-family:var(--mono); font-size:12px; }
+  .live-refresh-note { font-size:9px; font-family:var(--mono); color:var(--dim); text-align:center; padding:8px; }
+
   /* ── TRACKER SCREEN ── */
   #screen-tracker { flex-direction: column; align-items: center; background: var(--bg); }
   .tracker-header { width:100%; max-width:760px; padding:10px 14px; background:rgba(8,11,16,0.97); border-bottom:1px solid rgba(61,158,255,0.12); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; }
@@ -526,11 +548,13 @@
     <div class="col-clock" id="col-clock">🕐 --:--:-- COL</div>
     <div class="header-right">
       <button class="live-btn" id="refresh-btn" onclick="refreshData()" title="Actualizar datos live">⟳ LIVE</button>
+      <button class="live-btn" onclick="openLivePanel()" title="Ver todos los partidos en vivo" style="background:rgba(255,71,87,0.12);border-color:rgba(255,71,87,0.3);color:var(--red)" id="live-panel-btn">🔴 LIVES</button>
       <button class="scanner-btn" id="scanner-btn" onclick="runScanner()" title="Escanear Stake 8+">🔍 SCAN</button>
       <!-- Hamburger menu -->
       <div style="position:relative">
         <button class="menu-btn" id="menu-btn" onclick="toggleMenu()" title="Menú">≡ MENÚ</button>
         <div class="dropdown-menu" id="dropdown-menu">
+          <div class="dd-item" onclick="openLivePanel();closeMenu()">🔴 Partidos en vivo</div>
           <div class="dd-item" onclick="openTracker();closeMenu()">📊 Bankroll Tracker</div>
           <div class="dd-item" onclick="runScanner();closeMenu()">🔍 Escanear Stake 8+</div>
           <div class="dd-sep"></div>
@@ -597,6 +621,25 @@
 </div>
 
 <!-- ════════════ TRACKER ════════════ -->
+<!-- ════════════ LIVE PANEL ════════════ -->
+<div id="screen-live" class="screen">
+  <div class="live-panel-header">
+    <div class="live-panel-title">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1s infinite;display:inline-block"></span>
+      PARTIDOS EN VIVO
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="live-panel-count" style="font-size:10px;color:var(--muted);font-family:var(--mono)"></span>
+      <button onclick="refreshLivePanel()" style="padding:4px 9px;border-radius:6px;background:var(--red-dim);border:1px solid rgba(255,71,87,0.3);color:var(--red);cursor:pointer;font-size:10px;font-family:var(--mono)">⟳ REFRESH</button>
+      <button onclick="showScreen('chat')" style="padding:4px 9px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:10px;font-family:var(--mono)">← CHAT</button>
+    </div>
+  </div>
+  <div class="live-panel-body" id="live-panel-body">
+    <div class="live-empty">Cargando partidos en vivo...</div>
+  </div>
+  <div class="live-refresh-note">Datos de SofaScore · Actualización cada 30s · Toca un partido para analizarlo</div>
+</div>
+
 <div id="screen-tracker" class="screen">
   <div class="tracker-header">
     <div style="display:flex;align-items:center;gap:8px">
@@ -1160,6 +1203,27 @@ async function loadNBALive() {
   } catch { nbaLive = ""; }
 }
 
+// ── SofaScore proxy helper — bypasses CORS ───────────────────
+// Tries multiple CORS proxies in order
+async function sofaFetch(path) {
+  const base = "https://api.sofascore.com/api/v1" + path;
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(base)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(base)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(base)}`,
+  ];
+  for (const url of proxies) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
+      if (r.ok) {
+        const text = await r.text();
+        return JSON.parse(text);
+      }
+    } catch {}
+  }
+  return null;
+}
+
 // ── SofaScore (API no oficial) ────────────────────────────────
 // Covers ALL leagues: lineups, H2H, live stats, player ratings + basketball
 async function loadSofaScore() {
@@ -1176,10 +1240,7 @@ async function loadSofaScore() {
 
     // ── 1. Football: today's scheduled events ──────────────────
     try {
-      const r = await fetch(
-        `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${dateStr}`,
-        { headers: hdrs, signal: AbortSignal.timeout(7000) }
-      );
+      const r = await sofaFetch(`/sport/football/scheduled-events/${dateStr}`);
       if (r.ok) {
         const d = await r.json();
         const events = d?.events || [];
@@ -1220,8 +1281,7 @@ async function loadSofaScore() {
             // Lineups for upcoming/live games (within 2h)
             if (evId && lines.length < 2 && (isLive || (!isDone && startTs && (startTs*1000 - Date.now()) < 7200000))) {
               try {
-                const lr = await fetch(`https://api.sofascore.com/api/v1/event/${evId}/lineups`,
-                  { headers: hdrs, signal: AbortSignal.timeout(4000) });
+                const lr = await sofaFetch(`/event/${evId}/lineups`);
                 if (lr.ok) {
                   const ld = await lr.json();
                   if (ld?.confirmed) {
@@ -1236,8 +1296,7 @@ async function loadSofaScore() {
               // Live match stats: possession, shots, corners
               if (isLive) {
                 try {
-                  const sr = await fetch(`https://api.sofascore.com/api/v1/event/${evId}/statistics`,
-                    { headers: hdrs, signal: AbortSignal.timeout(4000) });
+                  const sr = await sofaFetch(`/event/${evId}/statistics`);
                   if (sr.ok) {
                     const sd = await sr.json();
                     const groups = sd?.statistics?.[0]?.groups || [];
@@ -1273,10 +1332,7 @@ async function loadSofaScore() {
 
     // ── 2. Basketball (NBA + other) today ──────────────────────
     try {
-      const br = await fetch(
-        `https://api.sofascore.com/api/v1/sport/basketball/scheduled-events/${dateStr}`,
-        { headers: hdrs, signal: AbortSignal.timeout(6000) }
-      );
+      const br = await sofaFetch(`/sport/basketball/scheduled-events/${dateStr}`);
       if (br.ok) {
         const bd = await br.json();
         const bEvents = bd?.events || [];
@@ -1378,15 +1434,20 @@ async function fetchSofaScoreH2H(homeTeam, awayTeam) {
     const colNow = getColombiaTime();
     const dateStr = `${colNow.getFullYear()}-${String(colNow.getMonth()+1).padStart(2,"0")}-${String(colNow.getDate()).padStart(2,"0")}`;
 
-    // Try football first, then basketball
+    // Search across 3 days: yesterday, today, tomorrow, +2 days
+    const colNow2 = getColombiaTime();
+    const daysToSearch = [-1, 0, 1, 2].map(offset => {
+      const d2 = new Date(colNow2.getTime() + offset * 86400000);
+      return d2.getFullYear() + "-" + String(d2.getMonth()+1).padStart(2,"0") + "-" + String(d2.getDate()).padStart(2,"0");
+    });
+
     for (const sport of ["football", "basketball"]) {
-      const r = await fetch(
-        `https://api.sofascore.com/api/v1/sport/${sport}/scheduled-events/${dateStr}`,
-        { headers: hdrs, signal: AbortSignal.timeout(5000) }
-      );
-      if (!r.ok) continue;
-      const d = await r.json();
-      const events = d?.events || [];
+      let events = [];
+      for (const ds of daysToSearch) {
+        const d = await sofaFetch(`/sport/${sport}/scheduled-events/${ds}`);
+        if (d?.events?.length) events = events.concat(d.events);
+      }
+      if (!events.length) continue;
 
       // Find matching event (fuzzy match on team names)
       const norm = s => s.toLowerCase().replace(/\s+/g,"").replace(/fc|cf|sc|ac|united|city/gi,"");
@@ -1400,24 +1461,65 @@ async function fetchSofaScoreH2H(homeTeam, awayTeam) {
 
       const evId = ev.id;
       // Fetch H2H
-      const hr = await fetch(`https://api.sofascore.com/api/v1/event/${evId}/h2h`,
-        { headers: hdrs, signal: AbortSignal.timeout(5000) });
-      if (!hr.ok) continue;
-      const hd = await hr.json();
+      const hd = await sofaFetch(`/event/${evId}/h2h`);
+      if (!hd) continue;
       const teamDuel = hd?.teamDuel;
       const h2hEvents = (hd?.events || []).slice(0, 5);
 
-      let result = `⚔️ **H2H: ${awayTeam} vs ${homeTeam}**\n`;
+      // Fetch last 5 results for each team
+      const homeId = ev.homeTeam?.id;
+      const awayId = ev.awayTeam?.id;
+      let homeLast5 = [], awayLast5 = [];
+      if (homeId) {
+        const ld = await sofaFetch(`/team/${homeId}/events/last/0`);
+        homeLast5 = (ld?.events || []).slice(-5).reverse();
+      }
+      if (awayId) {
+        const ld = await sofaFetch(`/team/${awayId}/events/last/0`);
+        awayLast5 = (ld?.events || []).slice(-5).reverse();
+      }
+
+      // Party time / start time in COL
+      const startTs = ev.startTimestamp;
+      const startStr = startTs ? toColStr(new Date(startTs * 1000)) : "Hora no disponible";
+      const startDateFull = startTs ? (() => {
+        const d2 = new Date(startTs * 1000);
+        const parts2 = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", weekday:"short", day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(d2);
+        return parts2.map(p=>p.value).join("").trim();
+      })() : "Fecha no disponible";
+
+      let result = `⚔️ **${awayTeam} vs ${homeTeam}**\n`;
+      result += `📅 Partido: ${startDateFull} COL | Competición: ${ev.tournament?.name||"?"}\n`;
       if (teamDuel) {
-        result += `Historial: ${awayTeam} ${teamDuel.awayWins||0}W - ${teamDuel.draws||0}D - ${teamDuel.homeWins||0}W ${homeTeam}\n`;
+        result += `📊 H2H total: ${awayTeam} ${teamDuel.awayWins||0}V - ${teamDuel.draws||0}E - ${teamDuel.homeWins||0}V ${homeTeam}\n`;
       }
       if (h2hEvents.length) {
-        result += "Últimos enfrentamientos:\n" + h2hEvents.map(e => {
+        result += "⚔️ Últimos enfrentamientos directos:\n" + h2hEvents.map(e => {
           const hS = e.homeScore?.current ?? "-";
           const aS = e.awayScore?.current ?? "-";
-          const dt = e.startTimestamp ? new Date(e.startTimestamp*1000).toLocaleDateString("es-CO") : "";
+          const dt = e.startTimestamp ? toColStr(new Date(e.startTimestamp*1000)).replace(" COL","") : "";
           return `  • ${e.homeTeam?.name} ${hS}-${aS} ${e.awayTeam?.name} (${dt})`;
-        }).join("\n");
+        }).join("\n") + "\n";
+      }
+      if (homeLast5.length) {
+        result += `📈 Últimos 5 de ${homeTeam}: ` + homeLast5.map(e => {
+          const isHome = e.homeTeam?.id === homeId;
+          const myScore = isHome ? e.homeScore?.current : e.awayScore?.current;
+          const oppScore = isHome ? e.awayScore?.current : e.homeScore?.current;
+          const opp = isHome ? e.awayTeam?.name : e.homeTeam?.name;
+          const res = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "D";
+          return `${res}(${myScore}-${oppScore} vs ${opp})`;
+        }).join(", ") + "\n";
+      }
+      if (awayLast5.length) {
+        result += `📈 Últimos 5 de ${awayTeam}: ` + awayLast5.map(e => {
+          const isHome = e.homeTeam?.id === awayId;
+          const myScore = isHome ? e.homeScore?.current : e.awayScore?.current;
+          const oppScore = isHome ? e.awayScore?.current : e.homeScore?.current;
+          const opp = isHome ? e.awayTeam?.name : e.homeTeam?.name;
+          const res = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "D";
+          return `${res}(${myScore}-${oppScore} vs ${opp})`;
+        }).join(", ");
       }
       return result;
     }
@@ -2049,9 +2151,15 @@ ${injurySection}
 
 ${oddsSection}
 
-## 🎯 ESPECIALIDAD
-**NBA:** NetRtg alto=mejor equipo. Pace alto→Over. Back-to-back=fatiga→Under/rival. Injuries cruza con línea. Props: busca FG% matchup.
-**FÚTBOL:** BTTS, totales, hándicap asiático. Motivación clave. Liga BetPlay=mercados ineficientes=más value.
+## 🎯 PRIORIDAD DE FUENTES
+1. **SofaScore** (sección ⚽ SOFASCORE) = FUENTE PRINCIPAL para fútbol: H2H real, forma reciente, lineups, live stats. SIEMPRE úsala primero.
+2. **H2H Dinámico** (sección ⚔️) = datos específicos del partido preguntado. Si está disponible, es la fuente más importante.
+3. **NBA Live / NBA Advanced** = fuente principal para NBA.
+4. **ESPN / API-Football** = backup y fixture.
+5. Si SofaScore no tiene el partido: dilo explícitamente y usa conocimiento general marcado como tal.
+
+**NBA:** NetRtg alto=mejor. Pace alto→Over. B2B=fatiga→Under/rival. Injuries cruza línea.
+**FÚTBOL:** BTTS, totales, hándicap asiático. Motivación clave. Liga BetPlay=mercados ineficientes.
 
 ## STEAM/VALUE/LIVE
 🚨 **Steam:** línea mueve sin noticia pública = sharps activos → sigue el dinero.
@@ -2097,13 +2205,28 @@ Solo cuando: forma dominante + matchup favorable + motivación máxima + H2H a f
 ## 🧠 PROCESO INTERNO
 1.DATOS→2.CONTEXTO(lesiones,b2b,motivación,H2H,forma)→3.EDGE(ineficiencia del mercado)→4.EV=(prob×cuota-1)×100%,solo si≥5%→5.STAKE proporcional.
 
-## 📋 FORMATO TIP
-📡 Fuentes:[ESPN✓/✗][TSDB✓/✗][Odds✓/✗] | HH:MM COL
-🎯 **PARTIDO** | 🏆 Liga | 📅 Hora COL | Estado
-🏥 Lesiones: | 📈 Forma(5): | ⚔️ H2H(3): | 💪 Motivación:
-**EDGE:** [por qué mercado errado]
-**APUESTA:** Mercado→Pick→Cuota | 📈 **EV: +X.X%** (prob×cuota-1) | ⚡ **STAKE: X/10**
-[🚨 STEAM si aplica] [📊 RLM si aplica]
+## 📋 FORMATO OBLIGATORIO — SIEMPRE COMPLETO
+**LÍNEA 1 SIEMPRE:** 📡 *Fuentes: [SofaScore✓/✗] [ESPN✓/✗] [Odds✓/✗] | Actualizado: HH:MM COL*
+(Si SofaScore no tiene datos del partido: escribe "SofaScore✗ — datos de conocimiento general")
+
+🎯 **[EQUIPO VISITANTE] vs [EQUIPO LOCAL]**
+🏆 **Liga/Competición:** [nombre]
+📅 **Fecha/Hora:** [DÍA DD/MM — HH:MM COL] (SIEMPRE en hora Colombia)
+📡 **Estado:** [Próximo HH:MM COL / 🔴 EN VIVO min XX / ✅ Finalizado]
+
+**⚔️ H2H (SofaScore):** [resultados reales de los últimos 3-5 enfrentamientos directos]
+**📈 Forma reciente:** [últimos 5 de cada equipo: W/L/D con marcador real]
+**🏥 Lesiones/Bajas:** [lista o "Sin bajas confirmadas"]
+**💪 Motivación:** [contexto del partido]
+**⚡ Ritmo/Momentum:** [pace, tendencias]
+
+**🎯 EDGE DETECTADO:** [razón específica por qué el mercado está mal calibrado]
+
+**APUESTA:**
+- Mercado: [tipo]  |  Selección: [pick]  |  Cuota: [valor] ([fuente])
+- 📈 **EV estimado: +X.X%** — (prob_real X% × cuota Y) - 1
+- ⚡ **STAKE: X/10** | 💬 [justificación]
+[🚨 STEAM MOVE si aplica] [📊 REVERSE LINE MOVEMENT si aplica]
 
 ---
 
@@ -2861,6 +2984,143 @@ function startCountdown(elementId, totalSecs) {
     }
   }, 1000);
 }
+
+// ══════════════════════════════════════════════════════════════
+//  LIVE PANEL
+// ══════════════════════════════════════════════════════════════
+let livePanelData = []; // cached live games for the panel
+
+async function openLivePanel() {
+  showScreen("live");
+  await refreshLivePanel();
+}
+
+async function refreshLivePanel() {
+  const body = document.getElementById("live-panel-body");
+  const countEl = document.getElementById("live-panel-count");
+  if (body) body.innerHTML = '<div class="live-empty">⟳ Cargando datos de SofaScore...</div>';
+
+  // Fetch live events from SofaScore for all sports
+  livePanelData = [];
+  try {
+    // Football live
+    const fd = await sofaFetch("/sport/football/events/live");
+    if (fd?.events?.length) {
+      fd.events.forEach(ev => livePanelData.push({ ...ev, _sport: "football" }));
+    }
+    // Basketball live
+    const bd = await sofaFetch("/sport/basketball/events/live");
+    if (bd?.events?.length) {
+      bd.events.forEach(ev => livePanelData.push({ ...ev, _sport: "basketball" }));
+    }
+    // Tennis live (bonus)
+    const td = await sofaFetch("/sport/tennis/events/live");
+    if (td?.events?.length) {
+      td.events.slice(0, 10).forEach(ev => livePanelData.push({ ...ev, _sport: "tennis" }));
+    }
+  } catch {}
+
+  // Update live panel button count
+  const btn = document.getElementById("live-panel-btn");
+  if (livePanelData.length) {
+    if (btn) btn.textContent = `🔴 LIVES (${livePanelData.length})`;
+    if (countEl) countEl.textContent = `${livePanelData.length} partidos en vivo`;
+  } else {
+    if (btn) btn.textContent = "🔴 LIVES";
+    if (countEl) countEl.textContent = "Sin partidos en vivo ahora";
+  }
+
+  renderLivePanel();
+}
+
+function renderLivePanel() {
+  const body = document.getElementById("live-panel-body");
+  if (!body) return;
+
+  if (!livePanelData.length) {
+    body.innerHTML = '<div class="live-empty">😴 No hay partidos en vivo ahora mismo.<br><br>Vuelve cuando empiece la acción.</div>';
+    return;
+  }
+
+  // Group by sport + tournament
+  const groups = {};
+  for (const ev of livePanelData) {
+    const sport = ev._sport === "football" ? "⚽" : ev._sport === "basketball" ? "🏀" : "🎾";
+    const key = sport + " " + (ev.tournament?.name || "Otro");
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(ev);
+  }
+
+  // Sort: football first, then basketball
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    if (a.startsWith("⚽") && !b.startsWith("⚽")) return -1;
+    if (!a.startsWith("⚽") && b.startsWith("⚽")) return 1;
+    if (a.startsWith("🏀") && !b.startsWith("🏀")) return -1;
+    return a.localeCompare(b);
+  });
+
+  body.innerHTML = sortedKeys.map(key => {
+    const evs = groups[key];
+    const cards = evs.map(ev => {
+      const home   = ev.homeTeam?.name || "?";
+      const away   = ev.awayTeam?.name || "?";
+      const hs     = ev.homeScore?.current ?? 0;
+      const as_    = ev.awayScore?.current ?? 0;
+      const status = ev.status?.description || "";
+      const period = ev.status?.periodLength ? "" : "";
+
+      // Extra score details (periods/quarters)
+      let scoreDetail = "";
+      if (ev.homeScore?.period1 !== undefined) {
+        scoreDetail = ` (${ev.homeScore.period1}-${ev.awayScore?.period1})`;
+      }
+      if (ev.homeScore?.quarter1 !== undefined) {
+        const qs = [1,2,3,4].map(q => {
+          const hq = ev.homeScore[`quarter${q}`];
+          const aq = ev.awayScore?.[`quarter${q}`];
+          return hq !== undefined ? `Q${q}:${aq}-${hq}` : null;
+        }).filter(Boolean).join(" ");
+        scoreDetail = qs ? ` (${qs})` : "";
+      }
+
+      const safeHome = home.replace(/'/g, "\'");
+      const safeAway = away.replace(/'/g, "\'");
+      const safeTourney = (ev.tournament?.name || "").replace(/'/g, "\'");
+
+      return `<div class="live-game-card" onclick="askAboutLive('${safeAway} vs ${safeHome}', '${safeTourney}')">
+        <div class="live-game-score">
+          <div class="live-team away">${away}</div>
+          <div class="live-score-box">${as_} - ${hs}</div>
+          <div class="live-team">${home}</div>
+        </div>
+        <div class="live-game-meta">
+          <span class="live-time-badge">${status}</span>
+          ${scoreDetail ? `<span>${scoreDetail}</span>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="live-league-group">
+      <div class="live-league-name">${key}</div>
+      ${cards}
+    </div>`;
+  }).join("");
+}
+
+// Auto-refresh live panel every 30s when it's active
+setInterval(() => {
+  if (document.getElementById("screen-live")?.classList.contains("active")) {
+    refreshLivePanel();
+  }
+  // Also update the button count
+  if (livePanelData.length > 0 || sofascoreCtx.includes("EN VIVO")) {
+    loadSofaScore().then(() => {
+      const liveCount = livePanelData.length;
+      const btn = document.getElementById("live-panel-btn");
+      if (btn && liveCount > 0) btn.textContent = `🔴 LIVES (${liveCount})`;
+    });
+  }
+}, 30000);
 
 // ══════════════════════════════════════════════════════════════
 //  BANKROLL TRACKER
