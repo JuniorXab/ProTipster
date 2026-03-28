@@ -1211,13 +1211,18 @@ async function sofaFetch(path) {
     `https://corsproxy.io/?${encodeURIComponent(base)}`,
     `https://api.allorigins.win/raw?url=${encodeURIComponent(base)}`,
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(base)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(base)}`,
+    base, // try direct last (works in some environments / extensions)
   ];
   for (const url of proxies) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
+      const r = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: { "Accept": "application/json" }
+      });
       if (r.ok) {
         const text = await r.text();
-        return JSON.parse(text);
+        if (text && text.startsWith("{")) return JSON.parse(text);
       }
     } catch {}
   }
@@ -1281,9 +1286,8 @@ async function loadSofaScore() {
             // Lineups for upcoming/live games (within 2h)
             if (evId && lines.length < 2 && (isLive || (!isDone && startTs && (startTs*1000 - Date.now()) < 7200000))) {
               try {
-                const lr = await sofaFetch(`/event/${evId}/lineups`);
-                if (lr.ok) {
-                  const ld = await lr.json();
+                const ld = await sofaFetch(`/event/${evId}/lineups`);
+                if (ld) {
                   if (ld?.confirmed) {
                     const hStarters = (ld?.home?.players||[]).filter(p=>p.position).slice(0,3).map(p=>p.player?.name||"?").join(", ");
                     const aStarters = (ld?.away?.players||[]).filter(p=>p.position).slice(0,3).map(p=>p.player?.name||"?").join(", ");
@@ -1296,9 +1300,8 @@ async function loadSofaScore() {
               // Live match stats: possession, shots, corners
               if (isLive) {
                 try {
-                  const sr = await sofaFetch(`/event/${evId}/statistics`);
-                  if (sr.ok) {
-                    const sd = await sr.json();
+                  const sd = await sofaFetch(`/event/${evId}/statistics`);
+                  if (sd) {
                     const groups = sd?.statistics?.[0]?.groups || [];
                     const allStats = {};
                     for (const g of groups) {
@@ -1361,11 +1364,9 @@ async function loadSofaScore() {
 
     // ── 3. All live football + basketball globally → populate liveGames[] ──
     try {
-      // Football live
-      const lr = await fetch("https://api.sofascore.com/api/v1/sport/football/events/live",
-        { headers: hdrs, signal: AbortSignal.timeout(5000) });
-      if (lr.ok) {
-        const ld = await lr.json();
+      // Football live (via CORS proxy)
+      const ld = await sofaFetch("/sport/football/events/live");
+      if (ld) {
         const liveEvs = (ld?.events || []);
         if (liveEvs.length) {
           const liveLines = [];
@@ -1393,10 +1394,8 @@ async function loadSofaScore() {
 
     // Basketball live (NBA + other)
     try {
-      const blr = await fetch("https://api.sofascore.com/api/v1/sport/basketball/events/live",
-        { headers: hdrs, signal: AbortSignal.timeout(5000) });
-      if (blr.ok) {
-        const bld = await blr.json();
+      const bld = await sofaFetch("/sport/basketball/events/live");
+      if (bld) {
         const bLiveEvs = (bld?.events || []);
         if (bLiveEvs.length) {
           const bLiveLines = [];
@@ -1420,6 +1419,31 @@ async function loadSofaScore() {
         }
       }
     } catch {}
+
+    // ── 4. Standings for top leagues (table position context) ──
+    // tournament IDs: Premier=17, LaLiga=8, Serie A=23, Bundesliga=35, Liga BetPlay=11539, Champions=7
+    const standingLeagues = [
+      { id: 17,    name: "Premier League", season: 61627 },
+      { id: 8,     name: "LaLiga",         season: 61643 },
+      { id: 11539, name: "Liga BetPlay",   season: 0 },
+    ];
+    const standingParts = [];
+    for (const lg of standingLeagues) {
+      try {
+        // Get current season for this tournament
+        const seasonD = await sofaFetch(`/tournament/${lg.id}/seasons`);
+        const seasonId = seasonD?.seasons?.[0]?.id;
+        if (!seasonId) continue;
+        const standD = await sofaFetch(`/tournament/${lg.id}/season/${seasonId}/standings/total`);
+        const rows = standD?.standings?.[0]?.rows || [];
+        if (!rows.length) continue;
+        const lines = rows.slice(0, 10).map(r =>
+          `  ${String(r.position).padStart(2)}. ${r.team?.name?.padEnd(22)||"?"} | J:${r.matches||0} G:${r.wins||0} E:${r.draws||0} P:${r.losses||0} GF:${r.scoresFor||0} GC:${r.scoresAgainst||0} Pts:${r.points||0}`
+        );
+        standingParts.push(`📊 **${lg.name} — Tabla (Top 10):**\n${lines.join("\n")}`);
+      } catch {}
+    }
+    if (standingParts.length) parts.push(standingParts.join("\n\n"));
 
     if (parts.length) sofascoreCtx = parts.join("\n\n");
   } catch { sofascoreCtx = ""; }
@@ -2113,7 +2137,7 @@ function buildSystem() {
     : "";
   const nbaGamesLine    = nbaLineups ? `## 🏀 NBA HOY:\n${cap(nbaLineups, 400)}` : "";
   const nbaLiveLine     = nbaLive ? `## 🏀 NBA LIVE (actualizado cada 30s):\n${cap(nbaLive, 600)}` : "";
-  const sofaLine        = sofascoreCtx ? `## ⚽ SOFASCORE (lineups+live+stats+basketball):\n${cap(sofascoreCtx, 1000)}` : "";
+  const sofaLine        = sofascoreCtx ? `## ⚽ SOFASCORE (lineups+live+tabla+H2H+basketball):\n${cap(sofascoreCtx, 1400)}` : "";
   const h2hLine         = h2hCtx ? `## ⚔️ H2H DINÁMICO (SofaScore — este partido específico):\n${h2hCtx}` : "";
   const nbaAdvLine      = nbaAdvanced ? `## 📊 NBA ADVANCED:\n${cap(nbaAdvanced, 800)}` : "";
   const nbaPlayersLine  = nbaPlayerStats ? `## 🏀 PLAYERS:\n${cap(nbaPlayerStats, 600)}` : "";
@@ -2152,14 +2176,38 @@ ${injurySection}
 ${oddsSection}
 
 ## 🎯 PRIORIDAD DE FUENTES
-1. **SofaScore** (sección ⚽ SOFASCORE) = FUENTE PRINCIPAL para fútbol: H2H real, forma reciente, lineups, live stats. SIEMPRE úsala primero.
-2. **H2H Dinámico** (sección ⚔️) = datos específicos del partido preguntado. Si está disponible, es la fuente más importante.
-3. **NBA Live / NBA Advanced** = fuente principal para NBA.
-4. **ESPN / API-Football** = backup y fixture.
-5. Si SofaScore no tiene el partido: dilo explícitamente y usa conocimiento general marcado como tal.
+1. **H2H Dinámico** (sección ⚔️) = MÁS IMPORTANTE — datos reales del partido específico
+2. **SofaScore** (sección ⚽) = lineups confirmados, stats live, forma reciente real
+3. **NBA Live + NBA Advanced** = fuente principal para NBA
+4. **ESPN / API-Football** = fixture, backup
+5. Si no hay datos reales: dilo y usa conocimiento general marcado como "[estimado]"
 
-**NBA:** NetRtg alto=mejor. Pace alto→Over. B2B=fatiga→Under/rival. Injuries cruza línea.
-**FÚTBOL:** BTTS, totales, hándicap asiático. Motivación clave. Liga BetPlay=mercados ineficientes.
+## 🔬 ANÁLISIS DE CALIDAD — FACTORES OBLIGATORIOS
+
+### Para FÚTBOL debes considerar siempre:
+**POSICIÓN EN TABLA:** ¿Equipo peleando por título/clasificación/salvación/ya sin nada que ganar? La motivación cambia todo.
+**FORMA (últimos 5):** W-W-L-D-W es diferente a D-D-D-W-W. Importa la tendencia y el rival de cada resultado.
+**H2H RECIENTE (mínimo 3 partidos):** ¿Hay un equipo que domina este matchup históricamente?
+**FACTOR LOCAL vs VISITANTE:** El % de puntos en casa vs fuera. Algunos equipos son "home teams" puros.
+**MOTIVACIÓN:** ¿Está en juego algo importante? Mid-table sin nada en juego = análisis de bajo valor.
+**LESIONES/BAJAS CLAVE:** Portero, capitán, máximo goleador — impacto directo en línea.
+**FATIGA/FIXTURE:** ¿Jugó entre semana? ¿Viajó lejos? ¿Tiene partido importante el próximo fin de semana?
+**ESTILOS DE JUEGO:** Equipo de presión alta vs bloque bajo = partido cerrado → Under. Ambos atacan = Over/BTTS.
+**ÁRBITRO (si disponible):** Referees con alto promedio de tarjetas/penales afectan mercados específicos.
+**CUOTAS Y MOVIMIENTO:** ¿La línea se movió? ¿Hacia dónde apunta el dinero sharp?
+
+### Para NBA debes considerar siempre:
+**NET RATING vs RIVAL:** Diferencia de Net Rating predice margen mejor que el récord.
+**PACE MATCHUP:** Pace de ambos equipos → estima total. Diferencia > 3 = un equipo fuerza su ritmo.
+**BACK-TO-BACK / ROAD TRIP:** 2do partido B2B = -3 pts promedio en rendimiento. 3 en 4 noches = -5 pts.
+**LESIONES CLAVE:** Star player Out = ajuste de línea. Questionable = valor si la línea no lo refleja completamente.
+**HOME/AWAY SPLITS:** Algunos equipos son radicalmente mejores en casa (factor arena/fans).
+**ATS FORM:** ¿Cómo cubre el equipo el spread últimas 5? Favoritos que no cubren = value en underdog.
+**REFEREE TRENDS:** Algunos referees pitan más faltas = más tiros libres = más puntos = Over.
+**PROPS:** Cruza pts/reb/ast promedio del jugador con la defensa del rival en esa categoría específica.
+
+**NBA:** NetRtg alto=mejor. Pace alto→Over. B2B=fatiga. Injuries cruza línea.
+**FÚTBOL:** BTTS, totales, hándicap asiático. Liga BetPlay=mercados ineficientes=más value.
 
 ## STEAM/VALUE/LIVE
 🚨 **Steam:** línea mueve sin noticia pública = sharps activos → sigue el dinero.
