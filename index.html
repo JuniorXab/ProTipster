@@ -1783,7 +1783,7 @@ function updateCtxChips(state) {
     const oddsTxt   = oddsCtx   ? "💰 Odds reales" : (oddsKey ? "💰 Cargando..." : "");
     const afTxt     = apiFootballCtx ? "⚽ API-Football" : (apiFootballKey ? "⚽ Cargando..." : "");
     const tmrTxt    = tomorrowCtx ? "📅 +2 días" : "";
-    const tsdbTxt   = tsdbCtx ? "📋 TSDB" : "";
+    const tsdbTxt   = "";
     row.innerHTML = `
       <span class="ctx-chip ok">✓ ESPN</span>
       <span class="ctx-chip ok">✓ NBA</span>
@@ -1830,15 +1830,15 @@ function buildSystem() {
   const nbaGamesLine    = nbaLineups ? `## 🏀 NBA HOY:\n${cap(nbaLineups, 400)}` : "";
   const nbaLiveLine     = nbaLive ? `## 🏀 NBA LIVE (actualizado cada 30s):\n${cap(nbaLive, 600)}` : "";
   const sofaLine        = sofascoreCtx ? `## ⚽ SOFASCORE (lineups+live+stats):\n${cap(sofascoreCtx, 900)}` : "";
-  const nbaAdvLine      = nbaAdvanced ? `## 📊 NBA ADVANCED:\n${cap(nbaAdvanced, 800)}` : "";
-  const nbaPlayersLine  = nbaPlayerStats ? `## 🏀 PLAYERS:\n${cap(nbaPlayerStats, 600)}` : "";
-  const injurySection   = injuryCtx ? `## 🏥 LESIONES NBA:\n${cap(injuryCtx, 400)}` : "";
+  const nbaAdvLine      = nbaAdvanced ? `## 📊 NBA ADVANCED (W-L y stats REALES — usa estos números exactos, no estimes):\n${cap(nbaAdvanced, 800)}` : "";
+  const nbaPlayersLine  = nbaPlayerStats ? `## 🏀 PLAYERS (roster REAL — solo menciona jugadores que aparecen aquí con su equipo correcto):\n${cap(nbaPlayerStats, 600)}` : "";
+  const injurySection   = injuryCtx ? `## 🏥 LESIONES NBA (jugadores OUT/Doubtful — verifica que el equipo coincida con el partido analizado):\n${cap(injuryCtx, 400)}` : "";
   const oddsSection     = oddsCtx
     ? `## 💰 CUOTAS REALES (Bet365/Betcris):\n${cap(oddsCtx, 800)}\nEV=(prob_real×cuota-1)×100%. Apuesta si EV≥5%.`
     : "";
   const afSection       = apiFootballCtx ? `## ⚽ API-FOOTBALL:\n${cap(apiFootballCtx, 600)}` : "";
   const tomorrowSection = tomorrowCtx ? `## 📅 MAÑANA/PASADO:\n${cap(tomorrowCtx, 500)}` : "";
-  const tsdbSection     = tsdbCtx ? `## 📋 TSDB:\n${cap(tsdbCtx, 400)}` : "";
+  const tsdbSection     = ""; // TSDB removed — SofaScore covers H2H and form
 
   const nbaSection = [nbaLiveLine || nbaGamesLine, nbaAdvLine, nbaPlayersLine].filter(Boolean).join("\n\n");
 
@@ -1913,7 +1913,7 @@ Solo cuando: forma dominante + matchup favorable + motivación máxima + H2H a f
 1.DATOS→2.CONTEXTO(lesiones,b2b,motivación,H2H,forma)→3.EDGE(ineficiencia del mercado)→4.EV=(prob×cuota-1)×100%,solo si≥5%→5.STAKE proporcional.
 
 ## 📋 FORMATO TIP
-📡 Fuentes:[ESPN✓/✗][TSDB✓/✗][Odds✓/✗] | HH:MM COL
+📡 Fuentes:[ESPN✓/✗][SofaScore✓/✗][Odds✓/✗] | HH:MM COL
 🎯 **PARTIDO** | 🏆 Liga | 📅 Hora COL | Estado
 🏥 Lesiones: | 📈 Forma(5): | ⚔️ H2H(3): | 💪 Motivación:
 **EDGE:** [por qué mercado errado]
@@ -1925,13 +1925,15 @@ Solo cuando: forma dominante + matchup favorable + motivación máxima + H2H a f
 ## REGLAS CRÍTICAS
 
 1. **Responde SIEMPRE en español**
-2. **FUENTES OBLIGATORIAS** — siempre muestra el bloque 📡 *Fuentes usadas* al inicio. Si no tienes datos de una fuente, di "✗" pero igualmente da el mejor análisis posible.
-3. **NUNCA inventes datos de partido específico** — usa "[no disponible]" para datos que no tienes.
-4. **Partidos futuros** — si no aparecen en "PARTIDOS PRÓXIMOS", di explícitamente que es análisis de conocimiento general y procede.
-5. **EV OBLIGATORIO** — todo tip debe tener 📈 EV aproximado con cálculo.
-6. **Completa siempre la respuesta entera** sin cortar.
-7. **Sé directo** — no des análisis tipo "puede ganar o perder".
-8. **Hora Colombia siempre** — nunca menciones UTC o ET sin convertir a COL.`;
+2. **SIN INTRO NI PRESENTACIÓN** — nunca empieces con "¡Claro! Soy ProTipster..." ni te presentes. El usuario ya sabe quién eres. Ve DIRECTO al análisis o al tip desde la primera palabra.
+3. **FUENTES OBLIGATORIAS** — muestra el bloque 📡 al inicio del tip. Si no tienes datos de una fuente, di "✗" pero da el mejor análisis posible.
+4. **DATOS REALES ÚNICAMENTE** — usa SOLO los datos del contexto inyectado para forma reciente, H2H y stats. Si el dato no está en el contexto, escribe "[no disponible]". NUNCA inventes o estimes forma de los últimos partidos, records W-L, ni stats de jugadores. Si el contexto dice W-L 30-45, usa ese número exacto.
+5. **JUGADORES EN EQUIPOS CORRECTOS** — un jugador solo puede estar en un equipo. Verifica el roster en el contexto antes de mencionar cualquier lesión. Si no tienes datos del roster, no menciones jugadores individuales por nombre.
+6. **Partidos futuros** — si no aparecen en contexto, di explícitamente que es análisis de conocimiento general.
+7. **EV OBLIGATORIO** — todo tip debe tener 📈 EV con cálculo.
+8. **Completa siempre la respuesta entera** sin cortar.
+9. **Sé directo** — no des análisis tipo "puede ganar o perder".
+10. **Hora Colombia siempre** — nunca menciones UTC o ET sin convertir a COL.`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2396,7 +2398,7 @@ async function sendMessage() {
     updateTypingLabel("Buscando datos del partido...");
 
     // Enrich with TheSportsDB team data based on user message
-    await enrichWithTSDB(userText);
+    // TSDB removed — SofaScore handles H2H and form
 
     updateTypingLabel("Analizando con IA...");
 
