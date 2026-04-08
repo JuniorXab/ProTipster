@@ -6,8 +6,6 @@
 <title>NBA Stats Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<!-- Recharts needs React loaded first, load before Babel transpiles -->
-<script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@500;700;900&display=swap" rel="stylesheet"/>
 <style>
@@ -24,7 +22,7 @@ input,button,textarea{font-family:'Barlow',sans-serif}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useMemo,useCallback,useEffect} = React;
-const {BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,ReferenceLine,Tooltip,ResponsiveContainer} = window.Recharts;
+// No external chart library needed
 
 // ── PROXIES CORS ──────────────────────────────────────────────────────────────
 const PROXIES = [
@@ -660,6 +658,79 @@ function CaraACara({eqA,eqB,lesiones}){
   </div>;
 }
 
+
+// ── GRÁFICA DE BARRAS SVG (sin dependencias) ──────────────────────────────────
+function BarrasSVG({partidos, stat, lineaNum, statLabel}){
+  const W = 600, H = 180, PAD = {top:16,right:10,bottom:28,left:28};
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  if(!partidos||partidos.length===0) return null;
+
+  const valores = partidos.map(p => p[stat]||0);
+  const maxVal  = Math.max(...valores, lineaNum*1.1) * 1.1;
+  const barW    = Math.max(14, Math.floor((innerW / partidos.length) * 0.65));
+  const gap     = innerW / partidos.length;
+
+  const yScale  = v => innerH - (v / maxVal) * innerH;
+  const lineY   = yScale(lineaNum);
+
+  const [tooltip, setTooltip] = useState(null);
+
+  return <div style={{position:"relative",width:"100%",overflowX:"auto"}}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto",display:"block"}}>
+      {/* Grid lines */}
+      {[0,0.25,0.5,0.75,1].map(f=>{
+        const y = PAD.top + innerH * (1-f);
+        return <g key={f}>
+          <line x1={PAD.left} x2={PAD.left+innerW} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+          <text x={PAD.left-4} y={y+4} textAnchor="end" fill="#555" fontSize="9">{(maxVal*f).toFixed(0)}</text>
+        </g>;
+      })}
+
+      {/* Línea de referencia */}
+      <line x1={PAD.left} x2={PAD.left+innerW} y1={PAD.top+lineY} y2={PAD.top+lineY} stroke="#FFB700" strokeWidth="2" strokeDasharray="6 3"/>
+      <rect x={PAD.left+innerW-28} y={PAD.top+lineY-12} width="28" height="13" rx="3" fill="#FFB70033"/>
+      <text x={PAD.left+innerW-14} y={PAD.top+lineY-2} textAnchor="middle" fill="#FFB700" fontSize="9" fontWeight="bold">{lineaNum}</text>
+
+      {/* Barras */}
+      {partidos.map((p,i)=>{
+        const val  = p[stat]||0;
+        const over = val >= lineaNum;
+        const bH   = Math.max(2, (val/maxVal)*innerH);
+        const x    = PAD.left + gap*i + (gap-barW)/2;
+        const y    = PAD.top + innerH - bH;
+        return <g key={i}
+          onMouseEnter={()=>setTooltip({i,p,val,over,x:PAD.left+gap*i+gap/2})}
+          onMouseLeave={()=>setTooltip(null)}
+          style={{cursor:"pointer"}}>
+          <rect x={x} y={y} width={barW} height={bH} rx="3"
+            fill={over?"#4ade80":"#f87171"} opacity="0.85"/>
+          {/* valor encima de la barra */}
+          {barW>16&&<text x={x+barW/2} y={y-3} textAnchor="middle" fill={over?"#4ade80":"#f87171"} fontSize="8" fontWeight="bold">{val}</text>}
+        </g>;
+      })}
+
+      {/* Etiquetas eje X */}
+      {partidos.map((p,i)=>(
+        <text key={i} x={PAD.left+gap*i+gap/2} y={H-6} textAnchor="middle" fill="#555" fontSize="8">
+          {p.fecha?.slice(0,5)||""}
+        </text>
+      ))}
+
+      {/* Tooltip */}
+      {tooltip&&(()=>{
+        const tx = Math.min(Math.max(tooltip.x, 60), W-80);
+        return <g>
+          <rect x={tx-55} y={PAD.top} width="110" height="52" rx="6" fill="#1a1a2e" stroke={tooltip.over?"#4ade80":"#f87171"} strokeWidth="1"/>
+          <text x={tx} y={PAD.top+14} textAnchor="middle" fill="#aaa" fontSize="9">{tooltip.p.fecha} {tooltip.p.rival}</text>
+          <text x={tx} y={PAD.top+29} textAnchor="middle" fill={tooltip.over?"#4ade80":"#f87171"} fontSize="13" fontWeight="bold">{tooltip.val} {statLabel}</text>
+          <text x={tx} y={PAD.top+44} textAnchor="middle" fill="#666" fontSize="9">{tooltip.over?"✓ OVER":"✗ UNDER"} · {tooltip.p.resultado}</text>
+        </g>;
+      })()}
+    </svg>
+  </div>;
+}
+
 // ── VISTA JUGADORES ───────────────────────────────────────────────────────────
 function Jugadores({equipos}){
   const [query,setQuery]=useState("");
@@ -740,16 +811,7 @@ function Jugadores({equipos}){
     setLM(false);
   },[rival,gameLog,stat,linea,statLabel,lineaNum,defInfo,partidos,pct]);
 
-  const CustomTT=({active,payload})=>{
-    if(!active||!payload?.length) return null;
-    const p=payload[0].payload,val=p[stat]||0,over=val>=lineaNum;
-    return <div style={{background:"#1a1a2e",border:`1px solid ${over?"#4ade80":"#f87171"}`,borderRadius:8,padding:"10px 14px",fontSize:12}}>
-      <div style={{fontWeight:700,color:"#fff",marginBottom:4}}>{p.fecha} · {p.rival}</div>
-      <div style={{color:over?"#4ade80":"#f87171",fontSize:16,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif"}}>{val} {statLabel} {over?"✅":"❌"}</div>
-      <div style={{color:"#555",marginTop:3}}>Resultado: {p.resultado}</div>
-      <div style={{color:"#444",fontSize:10,marginTop:2}}>{p.pts}pts · {p.reb}reb · {p.ast}ast · {p.fg3m}3PM</div>
-    </div>;
-  };
+
 
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     {/* Búsqueda */}
@@ -862,20 +924,7 @@ function Jugadores({equipos}){
             <span style={{color:"#4ade80"}}>■ Sobre</span><span style={{color:"#f87171"}}>■ Bajo</span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={[...partidos].reverse()} margin={{top:10,right:5,left:-10,bottom:0}} barCategoryGap="20%">
-            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)"/>
-            <XAxis dataKey="fecha" tick={{fontSize:10,fill:"#555"}} axisLine={false} tickLine={false}/>
-            <YAxis tick={{fontSize:10,fill:"#555"}} axisLine={false} tickLine={false} domain={[0,d=>Math.max(d*1.15,lineaNum*1.3)]}/>
-            <Tooltip content={<CustomTT/>} cursor={{fill:"rgba(255,255,255,0.04)"}}/>
-            <ReferenceLine y={lineaNum} stroke="#FFB700" strokeWidth={2} strokeDasharray="6 3" label={{value:`${lineaNum}`,position:"insideTopRight",fill:"#FFB700",fontSize:11,fontWeight:700}}/>
-            <Bar dataKey={stat} radius={[4,4,0,0]}>
-              {[...partidos].reverse().map((p,i)=>(
-                <Cell key={i} fill={(p[stat]||0)>=lineaNum?"#4ade80":"#f87171"} fillOpacity={0.85}/>
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <BarrasSVG partidos={[...partidos].reverse()} stat={stat} lineaNum={lineaNum} statLabel={statLabel}/>
         <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:4}}>
           {partidos.map((p,i)=>{
             const val=p[stat]||0,over=val>=lineaNum;
